@@ -4433,8 +4433,7 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 void draw_lower_screen_9(BYTE* dst, BYTE* src);
 void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src);
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src);
-void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src);
-void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src);
+void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 
 void drawLowerScreen(BYTE *pBuff)
 {
@@ -4939,10 +4938,10 @@ void drawLowerScreen(BYTE *pBuff)
       draw_lower_screen_11(pBuff, dst, src);
       break;
     case 12:
-      draw_lower_screen_12(pBuff, dst, src);
+      draw_lower_screen_default(pBuff, dst, src, false);
       break;
     default:
-      draw_lower_screen_default(pBuff, dst, src);
+      draw_lower_screen_default(pBuff, dst, src, true);
       break;
 	}
 }
@@ -5057,7 +5056,7 @@ LABEL_171:
   }
 }
 
-void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src) {
+void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
   int xx_32 = 30;
   if (pBuff >= gpBufEnd) {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
@@ -5073,33 +5072,14 @@ void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src) {
     xx_32 = 30 - (world_tbl >> 1);
   }
   for (; xx_32 >= 0; xx_32 -= 2) {
-    src += (32 - xx_32) & 2;
-    memcpy(dst + xx_32, src, 32 - xx_32);
-    src += 32 - xx_32;
-    dst -= 768;
-  } 
-  world_copy_block(dst, src, 16);
-}
-
-void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src) {
-  int xx_32 = 30;
-  if (pBuff >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = pBuff - 12288;
-      src += 288;
-      world_copy_block(dst, src, 16);
-      return;
+    if (some_flag) {
+      memcpy(dst, src, 32 - xx_32);
+      src += (32 - xx_32) & 2;
+    } else {
+      src += (32 - xx_32) & 2;
+      memcpy(dst + xx_32, src, 32 - xx_32);
     }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
-  }
-  for (; xx_32 >= 0; xx_32 -= 2) {
-    memcpy(dst, src, 32 - xx_32);
     src += 32 - xx_32;
-    src += (32 - xx_32) & 2;
     dst -= 768;
   }
   world_copy_block(dst, src, 16);
