@@ -4430,7 +4430,6 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	}
 }
 
-void draw_lower_screen_8(BYTE* dst, BYTE* src);
 void draw_lower_screen_9(BYTE* dst, BYTE* src);
 void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src);
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src);
@@ -4928,7 +4927,7 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 	switch (cel_type_16) {
     case 8:
-      draw_lower_screen_8(dst, src);
+      world_copy_square(dst, src);
       break;
     case 9:
       draw_lower_screen_9(dst, src);
@@ -4948,7 +4947,7 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 }
 
-void draw_lower_screen_8(BYTE* dst, BYTE* src) {
+void world_copy_square(BYTE* dst, BYTE* src) {
   int i = 32;
   do {
     if (dst < gpBufEnd) {
