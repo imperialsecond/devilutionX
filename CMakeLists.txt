@@ -49,9 +49,7 @@ if(HAIKU)
   set(ASAN OFF)
 endif()
 
-if(DIST)
-  set(sodium_USE_STATIC_LIBS ON)
-endif()
+set(sodium_USE_STATIC_LIBS ON)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -176,7 +174,7 @@ add_library(devilution STATIC
   Source/trigs.cpp
   Source/wave.cpp)
 
-add_executable(devilutionx
+add_library(libdevilutionx STATIC
   SourceX/dx.cpp
   SourceX/miniwin/misc.cpp
   SourceX/miniwin/misc_io.cpp
@@ -206,18 +204,17 @@ add_executable(devilutionx
   SourceX/DiabloUI/selconn.cpp
   SourceX/DiabloUI/selgame.cpp
   SourceX/DiabloUI/selhero.cpp
-  SourceX/DiabloUI/title.cpp
-  SourceX/main.cpp)
+  SourceX/DiabloUI/title.cpp)
 
 target_include_directories(devilution PUBLIC Source SourceS)
-target_include_directories(devilutionx PRIVATE
+target_include_directories(libdevilutionx PRIVATE
   SourceX
   3rdParty/asio/include
   3rdParty/Radon/Radon/include
   3rdParty/libsmacker)
 
 target_link_libraries(devilution PUBLIC Threads::Threads)
-target_link_libraries(devilutionx PRIVATE
+target_link_libraries(libdevilutionx PRIVATE
   devilution
   PKWare
   StormLib
@@ -234,7 +231,7 @@ target_compile_definitions(devilution PUBLIC
   "$<$<BOOL:${DEBUG}>:_DEBUG>"
   # Skip fades and other fluff
   "$<$<BOOL:${FASTER}>:FASTER>")
-target_compile_definitions(devilutionx PRIVATE ASIO_STANDALONE)
+target_compile_definitions(libdevilutionx PRIVATE ASIO_STANDALONE)
 
 if(ASAN)
   target_compile_options(devilution PUBLIC -fsanitize=address -fsanitize-recover=address)
@@ -242,11 +239,11 @@ if(ASAN)
 endif()
 
 if(DIST AND NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  target_link_libraries(devilutionx PUBLIC -static-libgcc -static-libstdc++)
+  target_link_libraries(libdevilutionx PUBLIC -static-libgcc -static-libstdc++)
 endif()
 
 if(WIN32)
-  target_link_libraries(devilutionx PRIVATE wsock32 ws2_32 wininet)
+  target_link_libraries(libdevilutionx PRIVATE wsock32 ws2_32 wininet)
 
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(devilution PUBLIC $<$<CONFIG:Debug>:-gstabs>)
@@ -254,7 +251,7 @@ if(WIN32)
 endif()
 
 if(HAIKU)
-  target_link_libraries(devilutionx PRIVATE network)
+  target_link_libraries(libdevilutionx PRIVATE network)
 endif()
 
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -269,10 +266,10 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(devilution PRIVATE -fno-strict-aliasing)
 
   # Warnings for devilutionX
-  target_compile_options(devilutionx PRIVATE -Wall -Wextra -Wno-write-strings -Wno-multichar -Wno-unused-parameter)
+  target_compile_options(libdevilutionx PRIVATE -Wall -Wextra -Wno-write-strings -Wno-multichar -Wno-unused-parameter)
 
   target_compile_options(devilution PRIVATE -fsigned-char)
-  target_compile_options(devilutionx PRIVATE -fsigned-char)
+  target_compile_options(libdevilutionx PRIVATE -fsigned-char)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -285,11 +282,35 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # Style issues
-  target_compile_options(devilutionx PRIVATE -Wno-parentheses -Wno-logical-op-parentheses -Wno-bitwise-op-parentheses)
+  target_compile_options(libdevilutionx PRIVATE -Wno-parentheses -Wno-logical-op-parentheses -Wno-bitwise-op-parentheses)
   # Silence warnings about __int64 alignment hack not always being applicable
-  target_compile_options(devilutionx PRIVATE -Wno-ignored-attributes)
+  target_compile_options(libdevilutionx PRIVATE -Wno-ignored-attributes)
   # Fix: error: cast from pointer to smaller type 'unsigned char' loses information
   target_compile_options(devilution PRIVATE -fms-extensions -fms-compatibility -fms-compatibility-version=19.00)
 	# Silence appfat.cpp warnings
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-narrowing")
 endif()
+
+add_executable(devilutionx SourceX/main.cpp)
+target_link_libraries(devilutionx PRIVATE
+  devilution
+  libdevilutionx
+  SDL2::SDL2main)
+
+enable_testing()
+add_subdirectory("${devilutionX_SOURCE_DIR}/3rdParty/googletest" "3rdParty/googletest")
+mark_as_advanced(
+    BUILD_GMOCK BUILD_GTEST BUILD_SHARED_LIBS
+    gmock_build_tests gtest_build_samples gtest_build_tests
+    gtest_disable_ptheads gtest_force_shared_ctr gtest_hide_internal_symbols
+)
+
+macro(package_add_test TESTNAME)
+    add_executable(${TESTNAME} ${ARGN})
+    target_link_libraries(${TESTNAME} gtest gmock gtest_main devilution libdevilutionx)
+    add_test(NAME ${TESTNAME} COMMAND ${TESTNAME})
+    set_target_properties(${TESTNAME} PROPERTIES FOLDER tests)
+    target_include_directories(${TESTNAME} PRIVATE SourceX)
+endmacro()
+
+package_add_test(render_test Source/render_test.cpp)
