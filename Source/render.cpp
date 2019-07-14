@@ -5212,41 +5212,14 @@ void drawLowerScreen(BYTE *pBuff)
 
 void world_draw_black_tile(BYTE *pBuff)
 {
-	unsigned char *dst; // edi MAPDST
-	signed int xx_32;   // edx
-	signed int i;       // ebx MAPDST
-	signed int j;       // ecx MAPDST
-	signed int yy_32;   // edx
-
-	dst = pBuff;
-	xx_32 = 30;
-	for (i = 1;; ++i) {
-		dst += xx_32;
-		j = i;
-		do {
-			*(DWORD *)dst = 0;
-			dst += 4;
-			--j;
-		} while (j);
-		dst = &dst[xx_32 - 832];
-		if (!xx_32)
-			break;
-		xx_32 -= 2;
-	}
-	yy_32 = 2;
-	i = 15;
-	do {
-		dst += yy_32;
-		j = i;
-		do {
-			*(DWORD *)dst = 0;
-			dst += 4;
-			--j;
-		} while (j);
-		dst = &dst[yy_32 - 832];
-		--i;
-		yy_32 += 2;
-	} while (yy_32 != 32);
+	unsigned char *dst = pBuff;
+  for (int y = 0; y < 31; ++y) {
+    int dy = abs(y - 15);
+    int startx = 2 * dy;
+    int width = 64 - 4 * dy;
+    memset(dst + 2 * dy, 0, width);
+    dst -= 768;
+  }
 }
 #endif
 
