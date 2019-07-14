@@ -39,7 +39,7 @@ TEST(RenderTest, TestWorldCopySquare) {
       source[y][x] = x+y;
     }
   }
-  dvl::world_copy_square(&buffer[31][0], &source[0][0]);
+  dvl::world_copy_block(&buffer[31][0], &source[0][0], 32);
 
   for (int y = 0; y < 64; ++y) {
     for (int x = 0; x < 64; ++x) {

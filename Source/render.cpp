@@ -4927,7 +4927,7 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 	switch (cel_type_16) {
     case 8:
-      world_copy_square(dst, src);
+      world_copy_block(dst, src, 32);
       break;
     case 9:
       draw_lower_screen_9(dst, src);
@@ -4947,8 +4947,8 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 }
 
-void world_copy_square(BYTE* dst, BYTE* src) {
-  for (int i = 0; i < 32; ++i) {
+void world_copy_block(BYTE* dst, BYTE* src, int height) {
+  for (int i = 0; i < height; ++i) {
     if (dst < gpBufEnd) {
       memcpy(dst, src, 32);
     }
@@ -4958,54 +4958,21 @@ void world_copy_square(BYTE* dst, BYTE* src) {
 }
 
 void draw_lower_screen_9(BYTE* dst, BYTE* src) {
-	int	xx_32 = 32;
-  do {
-    int yy_32 = 32;
-    do {
-      int width;
-      while (1) {
-        width = (unsigned char)*src++;
-        if ((width & 0x80u) == 0)
-          break;
+  for (int y = 0; y < 32; ++y) {
+    for (int x = 0; x < 32; ) {
+      int width = (unsigned char)*src++;
+      if (width >= 0x80) {
         _LOBYTE(width) = -(char)width;
-        dst += width;
-        yy_32 -= width;
-        if (!yy_32)
-          goto LABEL_143;
-      }
-      yy_32 -= width;
-      if (dst < gpBufEnd) {
-        int chk_sh_and = width >> 1;
-        if (width & 1) {
-          dst[0] = src[0];
-          ++src;
-          ++dst;
-        }
-        if (chk_sh_and) {
-          int n_draw_shift = chk_sh_and >> 1;
-          if (chk_sh_and & 1) {
-            *(WORD *)dst = *(WORD *)src;
-            src += 2;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = *(DWORD *)src;
-              src += 4;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-        }
       } else {
+        if (dst < gpBufEnd) {
+          memcpy(dst + x, src, width);
+        }
         src += width;
-        dst += width;
       }
-    } while (yy_32);
-  LABEL_143:
-    dst -= 800;
-    --xx_32;
-  } while (xx_32);
+      x += width;
+    } 
+    dst -= 768;
+  }
 }
 
 void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src) {
@@ -5013,7 +4980,7 @@ void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src) {
   if (pBuff >= gpBufEnd) {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
     if (tile_42_45 > 45) {
-      dst = pBuff - 12288;
+      dst = pBuff - 16 * 768;
       src += 288;
     LABEL_153:
       int yy_32 = 2;
@@ -5021,56 +4988,30 @@ void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src) {
         tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
         if (tile_42_45 > 42)
           return;
-        int world_tbl = WorldTbl3x16[tile_42_45];
-        src += WorldTbl17_2[world_tbl >> 2];
-        dst -= 192 * world_tbl;
-        yy_32 = (world_tbl >> 1) + 2;
+        int world_tbl = tile_42_45 / 3;
+        src += WorldTbl17_2[world_tbl];
+        dst -= 768 * world_tbl;
+        yy_32 = (world_tbl + 1) * 2;
       }
-      do {
-        dst += yy_32;
-        int n_draw_shift = (unsigned int)(32 - yy_32) >> 2;
-        if ((32 - yy_32) & 2) {
-          *(WORD *)dst = *((WORD *)src + 1);
-          src += 4;
-          dst += 2;
-        }
-        if (n_draw_shift) {
-          do {
-            *(DWORD *)dst = *(DWORD *)src;
-            src += 4;
-            dst += 4;
-            --n_draw_shift;
-          } while (n_draw_shift);
-        }
-        yy_32 += 2;
-        dst -= 800;
-      } while (yy_32 < 32);
+      for (; yy_32 < 32; yy_32 += 2) {
+        src += (32 - yy_32) & 2;
+        memcpy(dst + yy_32, src, 32 - yy_32);
+        src += 32 - yy_32;
+        dst -= 768;
+      }
       return;
     }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
+    int world_tbl = tile_42_45 / 3;
+    src += WorldTbl17_1[world_tbl];
+    dst -= 768 * world_tbl;
+    xx_32 = 30 - world_tbl * 2;
   }
-  do {
-    dst += xx_32;
-    int n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
-    if ((32 - xx_32) & 2) {
-      *(WORD *)dst = *((WORD *)src + 1);
-      src += 4;
-      dst += 2;
-    }
-    if (n_draw_shift) {
-      do {
-        *(DWORD *)dst = *(DWORD *)src;
-        src += 4;
-        dst += 4;
-        --n_draw_shift;
-      } while (n_draw_shift);
-    }
-    dst -= 800;
-    xx_32 -= 2;
-  } while (xx_32 >= 0);
+  for (; xx_32 >= 0; xx_32 -= 2) {
+    src += (32 - xx_32) & 2;
+    memcpy(dst + xx_32, src, 32 - xx_32);
+    src += 32 - xx_32;
+    dst -= 768;
+  }
   goto LABEL_153;
 }
 
@@ -5086,17 +5027,11 @@ void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src) {
     xx_32 = 30 - (world_tbl >> 1);
     do {
     LABEL_166:
-      for (int n_draw_shift = (unsigned int)(32 - xx_32) >> 2; n_draw_shift; --n_draw_shift) {
-        *(DWORD *)dst = *(DWORD *)src;
-        src += 4;
-        dst += 4;
-      }
-      if ((32 - (BYTE)xx_32) & 2) {
-        *(WORD *)dst = *(WORD *)src;
-        src += 4;
-        dst += 2;
-      }
-      dst = &dst[xx_32 - 800];
+      int n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
+      memcpy(dst, src, 32 - xx_32);
+      src += 32 - xx_32;
+      src += (32 - xx_32) & 2;
+      dst -= 768;
       xx_32 -= 2;
     } while (xx_32 >= 0);
     goto LABEL_171;
@@ -5114,21 +5049,12 @@ LABEL_171:
     dst -= 192 * world_tbl;
     yy_32 = (world_tbl >> 1) + 2;
   }
-  do {
-    for (int n_draw_shift = (unsigned int)(32 - yy_32) >> 2; n_draw_shift; --n_draw_shift) {
-      *(DWORD *)dst = *(DWORD *)src;
-      src += 4;
-      dst += 4;
-    }
-    if ((32 - (BYTE)yy_32) & 2) {
-      *(WORD *)dst = *(WORD *)src;
-      src += 4;
-      dst += 2;
-    }
-    dst += yy_32;
-    yy_32 += 2;
-    dst -= 800;
-  } while (yy_32 < 32);
+  for (; yy_32 < 32; yy_32 += 2) {
+    memcpy(dst, src, 32 - yy_32);
+    src += 32 - yy_32;
+    src += (32 - yy_32) & 2;
+    dst -= 768;
+  }
 }
 
 void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src) {
@@ -5136,26 +5062,9 @@ void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src) {
   if (pBuff >= gpBufEnd) {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
     if (tile_42_45 > 45) {
-      dst = pBuff - 12288;
+      dst = pBuff - 16 * 768;
       src += 288;
-    LABEL_189:
-      int i = 16;
-      do {
-        if (dst < gpBufEnd) {
-          int j = 8;
-          do {
-            *(DWORD *)dst = *(DWORD *)src;
-            src += 4;
-            dst += 4;
-            --j;
-          } while (j);
-        } else {
-          src += 32;
-          dst += 32;
-        }
-        dst -= 800;
-        --i;
-      } while (i);
+      world_copy_block(dst, src, 16);
       return;
     }
     int world_tbl = WorldTbl3x16[tile_42_45];
@@ -5163,26 +5072,13 @@ void draw_lower_screen_12(BYTE* pBuff, BYTE* dst, BYTE* src) {
     dst -= 192 * world_tbl;
     xx_32 = 30 - (world_tbl >> 1);
   }
-  do {
-    dst += xx_32;
-    int n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
-    if ((32 - xx_32) & 2) {
-      *(WORD *)dst = *((WORD *)src + 1);
-      src += 4;
-      dst += 2;
-    }
-    if (n_draw_shift) {
-      do {
-        *(DWORD *)dst = *(DWORD *)src;
-        src += 4;
-        dst += 4;
-        --n_draw_shift;
-      } while (n_draw_shift);
-    }
-    dst -= 800;
-    xx_32 -= 2;
-  } while (xx_32 >= 0);
-  goto LABEL_189;
+  for (; xx_32 >= 0; xx_32 -= 2) {
+    src += (32 - xx_32) & 2;
+    memcpy(dst + xx_32, src, 32 - xx_32);
+    src += 32 - xx_32;
+    dst -= 768;
+  } 
+  world_copy_block(dst, src, 16);
 }
 
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src) {
@@ -5192,24 +5088,7 @@ void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src) {
     if (tile_42_45 > 45) {
       dst = pBuff - 12288;
       src += 288;
-    LABEL_205:
-      int i = 16;
-      do {
-        if (dst < gpBufEnd) {
-          int j = 8;
-          do {
-            *(DWORD *)dst = *(DWORD *)src;
-            src += 4;
-            dst += 4;
-            --j;
-          } while (j);
-        } else {
-          src += 32;
-          dst += 32;
-        }
-        dst -= 800;
-        --i;
-      } while (i);
+      world_copy_block(dst, src, 16);
       return;
     }
     int world_tbl = WorldTbl3x16[tile_42_45];
@@ -5217,21 +5096,13 @@ void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src) {
     dst -= 192 * world_tbl;
     xx_32 = 30 - (world_tbl >> 1);
   }
-  do {
-    for (int n_draw_shift = (unsigned int)(32 - xx_32) >> 2; n_draw_shift; --n_draw_shift) {
-      *(DWORD *)dst = *(DWORD *)src;
-      src += 4;
-      dst += 4;
-    }
-    if ((32 - (BYTE)xx_32) & 2) {
-      *(WORD *)dst = *(WORD *)src;
-      src += 4;
-      dst += 2;
-    }
-    dst = &dst[xx_32 - 800];
-    xx_32 -= 2;
-  } while (xx_32 >= 0);
-  goto LABEL_205;
+  for (; xx_32 >= 0; xx_32 -= 2) {
+    memcpy(dst, src, 32 - xx_32);
+    src += 32 - xx_32;
+    src += (32 - xx_32) & 2;
+    dst -= 768;
+  }
+  world_copy_block(dst, src, 16);
 }
 
 void world_draw_black_tile(BYTE *pBuff)
