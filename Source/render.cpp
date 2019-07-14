@@ -4948,23 +4948,13 @@ void drawLowerScreen(BYTE *pBuff)
 }
 
 void world_copy_square(BYTE* dst, BYTE* src) {
-  int i = 32;
-  do {
+  for (int i = 0; i < 32; ++i) {
     if (dst < gpBufEnd) {
-      int j = 8;
-      do {
-        *(DWORD *)dst = *(DWORD *)src;
-        src += 4;
-        dst += 4;
-        --j;
-      } while (j);
-    } else {
-      src += 32;
-      dst += 32;
+      memcpy(dst, src, 32);
     }
-    dst -= 800;
-    --i;
-  } while (i);
+    src += 32;
+    dst -= 768;
+  }
 }
 
 void draw_lower_screen_9(BYTE* dst, BYTE* src) {
