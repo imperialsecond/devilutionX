@@ -4974,73 +4974,82 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src) {
   }
 }
 
-void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src) {
-  int xx_32 = 30;
-  if (pBuff >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = pBuff - 16 * 768;
-      src += 288;
-    LABEL_153:
-      int yy_32 = 2;
-      if (dst >= gpBufEnd) {
-        tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-        if (tile_42_45 > 42)
-          return;
-        int world_tbl = tile_42_45 / 3;
-        src += WorldTbl17_2[world_tbl];
-        dst -= 768 * world_tbl;
-        yy_32 = (world_tbl + 1) * 2;
-      }
-      for (; yy_32 < 32; yy_32 += 2) {
-        src += (32 - yy_32) & 2;
-        memcpy(dst + yy_32, src, 32 - yy_32);
-        src += 32 - yy_32;
-        dst -= 768;
-      }
-      return;
+static void copy_triangle_a(BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift >= 0; shift -= 2) {
+    if (some_flag) {
+      src += (32 - shift) & 2;
+      memcpy(dst + shift, src, 32 - shift);
+    } else {
+      memcpy(dst, src, 32 - shift);
+      src += (32 - shift) & 2;
     }
-    int world_tbl = tile_42_45 / 3;
-    src += WorldTbl17_1[world_tbl];
-    dst -= 768 * world_tbl;
-    xx_32 = 30 - world_tbl * 2;
-  }
-  for (; xx_32 >= 0; xx_32 -= 2) {
-    src += (32 - xx_32) & 2;
-    memcpy(dst + xx_32, src, 32 - xx_32);
-    src += 32 - xx_32;
+    src += 32 - shift;
     dst -= 768;
   }
-  goto LABEL_153;
+}
+
+static void copy_triangle_b(BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift < 32; shift += 2) {
+    if (some_flag) {
+      src += (32 - shift) & 2;
+      memcpy(dst + shift, src, 32 - shift);
+    } else {
+      memcpy(dst, src, 32 - shift);
+      src += (32 - shift) & 2;
+    }
+    src += 32 - shift;
+    dst -= 768;
+  }
+}
+
+void draw_lower_screen_10(BYTE* pBuff, BYTE* dst, BYTE* src) {
+  if (pBuff < gpBufEnd) {
+    copy_triangle_a(dst, src, 30, true);
+  } else {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 <= 45) {
+      int world_tbl = tile_42_45 / 3;
+      src += WorldTbl17_1[world_tbl];
+      dst -= 768 * world_tbl;
+      int xx_32 = 30 - world_tbl * 2;
+      copy_triangle_a(dst, src, xx_32, true);
+    } else {
+      dst = pBuff - 16 * 768;
+      src += 288;
+    }
+  }
+  int yy_32 = 2;
+  if (dst >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 42)
+      return;
+    int world_tbl = tile_42_45 / 3;
+    src += WorldTbl17_2[world_tbl];
+    dst -= 768 * world_tbl;
+    yy_32 = (world_tbl + 1) * 2;
+  }
+  copy_triangle_b(dst, src, yy_32, true);
 }
 
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src) {
-  int xx_32 = 30;
-  if (pBuff < gpBufEnd)
-    goto LABEL_166;
-  int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-  if (tile_42_45 <= 45) {
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
-    do {
-    LABEL_166:
-      int n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
-      memcpy(dst, src, 32 - xx_32);
-      src += 32 - xx_32;
-      src += (32 - xx_32) & 2;
-      dst -= 768;
-      xx_32 -= 2;
-    } while (xx_32 >= 0);
-    goto LABEL_171;
+  if (pBuff < gpBufEnd) {
+    copy_triangle_a(dst, src, 30, false);
+  } else {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 <= 45) {
+      int world_tbl = WorldTbl3x16[tile_42_45];
+      src += WorldTbl17_1[world_tbl >> 2];
+      dst -= 192 * world_tbl;
+      int xx_32 = 30 - (world_tbl >> 1);
+      copy_triangle_a(dst, src, xx_32, false);
+    } else {
+      dst = pBuff - 12288;
+      src += 288;
+    }
   }
-  dst = pBuff - 12288;
-  src += 288;
-LABEL_171:
   int yy_32 = 2;
   if (dst >= gpBufEnd) {
-    tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
+    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
     if (tile_42_45 > 42)
       return;
     int world_tbl = WorldTbl3x16[tile_42_45];
@@ -5048,12 +5057,7 @@ LABEL_171:
     dst -= 192 * world_tbl;
     yy_32 = (world_tbl >> 1) + 2;
   }
-  for (; yy_32 < 32; yy_32 += 2) {
-    memcpy(dst, src, 32 - yy_32);
-    src += 32 - yy_32;
-    src += (32 - yy_32) & 2;
-    dst -= 768;
-  }
+  copy_triangle_b(dst, src, yy_32, false);
 }
 
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
