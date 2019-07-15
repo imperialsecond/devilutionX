@@ -4432,8 +4432,7 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 
 void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src);
 void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src);
-void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
-void draw_lower_screen_3(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
+void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
 void draw_lower_screen_default2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
 
@@ -4742,10 +4741,10 @@ void drawLowerScreen(BYTE *pBuff)
           draw_lower_screen_1(tbl, dst, src);
           break;
         case 2:
-          draw_lower_screen_2(tbl, pBuff, dst, src);
+          draw_lower_screen_2(tbl, pBuff, dst, src, false);
           break;
         case 3:
-          draw_lower_screen_3(tbl, pBuff, dst, src);
+          draw_lower_screen_2(tbl, pBuff, dst, src, true);
           break;
         case 4:
           draw_lower_screen_4(tbl, pBuff, dst, src);
@@ -4818,7 +4817,7 @@ void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
   }
 }
 
-void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
+void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
   int xx_32 = 30;
   if (pBuff >= gpBufEnd) {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
@@ -4837,11 +4836,18 @@ void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
         yy_32 = (world_tbl >> 1) + 2;
       }
       do {
-        dst += yy_32;
-        src += (32 - (BYTE)yy_32) & 2;
-        asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-        yy_32 += 2;
-        dst -= 800;
+        if (some_flag) {
+          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
+          src += (unsigned char)src & 2;
+          dst = &dst[yy_32 - 800];
+          yy_32 += 2;
+        } else {
+          dst += yy_32;
+          src += (32 - (BYTE)yy_32) & 2;
+          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
+          yy_32 += 2;
+          dst -= 800;
+        }
       } while (yy_32 != 32);
       return;
     }
@@ -4851,53 +4857,20 @@ void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
     xx_32 = 30 - (world_tbl >> 1);
   }
   do {
-    dst += xx_32;
-    src += (32 - (BYTE)xx_32) & 2;
-    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-    dst -= 800;
-    xx_32 -= 2;
+    if (some_flag) {
+      asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+      src += (unsigned char)src & 2;
+      dst = &dst[xx_32 - 800];
+      xx_32 -= 2;
+    } else {
+      dst += xx_32;
+      src += (32 - (BYTE)xx_32) & 2;
+      asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+      dst -= 800;
+      xx_32 -= 2;
+    }
   } while (xx_32 >= 0);
   goto LABEL_68;
-}
-
-void draw_lower_screen_3(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
-  int xx_32 = 30;
-  if (pBuff >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = pBuff - 12288;
-      src += 288;
-    LABEL_83:
-      int yy_32 = 2;
-      if (dst >= gpBufEnd) {
-        tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-        if (tile_42_45 > 42)
-          return;
-        int world_tbl = WorldTbl3x16[tile_42_45];
-        src += WorldTbl17_2[world_tbl >> 2];
-        dst -= 192 * world_tbl;
-        yy_32 = (world_tbl >> 1) + 2;
-      }
-      do {
-        asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-        src += (unsigned char)src & 2;
-        dst = &dst[yy_32 - 800];
-        yy_32 += 2;
-      } while (yy_32 != 32);
-      return;
-    }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
-  }
-  do {
-    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-    src += (unsigned char)src & 2;
-    dst = &dst[xx_32 - 800];
-    xx_32 -= 2;
-  } while (xx_32 >= 0);
-  goto LABEL_83;
 }
 
 void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
