@@ -4505,6 +4505,31 @@ void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool s
   }
 }
 
+static void dispatch_draw_for_cel_type(int cel_type_16, BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, copy_fn* fn) {
+	switch (cel_type_16 & 7) {
+    case 0:
+      for (int i = 0; i < 32; ++i) {
+        fn(tbl, dst, src, 32, false);
+      }
+      break;
+    case 1:
+      draw_lower_screen_9(tbl, dst, src, fn);
+      break;
+    case 2:
+      draw_lower_screen_2_11(tbl, pBuff, dst, src, false, fn);
+      break;
+    case 3:
+      draw_lower_screen_2_11(tbl, pBuff, dst, src, true, fn);
+      break;
+    case 4:
+      draw_lower_screen_default(tbl, pBuff, dst, src, false, fn);
+      break;
+    default:
+      draw_lower_screen_default(tbl, pBuff, dst, src, true, fn);
+      break;
+	}
+}
+
 void drawLowerScreen(BYTE *pBuff)
 {
 	unsigned char *dst;        // edi MAPDST
@@ -4548,90 +4573,27 @@ void drawLowerScreen(BYTE *pBuff)
 				    + (unsigned short)(level_cel_block & 0xF000);
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			cel_type_16 = (level_cel_block >> 12) & 7;
-			switch (cel_type_16) {
-        case 0:
-          for (int i = 0; i < 32; ++i) {
-            copy_black(nullptr, dst, src, 32, false);
-          }
-          break;
-        case 1:
-          draw_lower_screen_9(nullptr, dst, src, copy_black);
-          break;
-        case 2:
-          draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_black);
-          break;
-        case 3:
-          draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_black);
-          break;
-        case 4:
-          draw_lower_screen_default(nullptr, pBuff, dst, src, false, copy_black);
-          break;
-        default:
-          draw_lower_screen_default(nullptr, pBuff, dst, src, true, copy_black);
-          break;
-			}
+      dispatch_draw_for_cel_type(cel_type_16, nullptr, pBuff, dst, src, copy_black);
 			return;
 		}
 		if (!(level_cel_block & 0x8000)) {
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			tbl = &pLightTbl[256 * light_table_index];
-			cel_type_16 = (unsigned short)level_cel_block >> 12;
-			switch (cel_type_16) {
-        case 0:
-          for (int i = 0; i < 32; ++i) {
-            copy_light_pixels(tbl, dst, src, 32, false);
-          }
-          break;
-        case 1:
-          draw_lower_screen_9(tbl, dst, src, copy_light_pixels);
-          break;
-        case 2:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_pixels);
-          break;
-        case 3:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_pixels);
-          break;
-        case 4:
-          draw_lower_screen_default(tbl, pBuff, dst, src, false, copy_light_pixels);
-          break;
-        default:
-          draw_lower_screen_default(tbl, pBuff, dst, src, true, copy_light_pixels);
-          break;
-			}
+			cel_type_16 = level_cel_block >> 12;
+      dispatch_draw_for_cel_type(cel_type_16, tbl, pBuff, dst, src, copy_light_pixels);
 			return;
 		}
 		src = (unsigned char *)pSpeedCels
 		    + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
-		cel_type_16 = (unsigned short)level_cel_block >> 12;
+		cel_type_16 = level_cel_block >> 12;
 	} else {
 		if (level_cel_block & 0x8000)
 			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
 			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		cel_type_16 = (((unsigned int)level_cel_block >> 12) & 7) + 8;
+		cel_type_16 = level_cel_block >> 12;
 	}
-	switch (cel_type_16) {
-    case 8:
-      for (int i = 0; i < 32; ++i) {
-        copy_pixels(nullptr, dst, src, 32, false);
-      }
-      break;
-    case 9:
-      draw_lower_screen_9(nullptr, dst, src, copy_pixels);
-      break;
-    case 10:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_pixels);
-      break;
-    case 11:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_pixels);
-      break;
-    case 12:
-      draw_lower_screen_default(nullptr, pBuff, dst, src, false, copy_pixels);
-      break;
-    default:
-      draw_lower_screen_default(nullptr, pBuff, dst, src, true, copy_pixels);
-      break;
-	}
+  dispatch_draw_for_cel_type(cel_type_16, nullptr, pBuff, dst, src, copy_pixels);
 }
 
 void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
