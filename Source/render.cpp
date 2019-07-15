@@ -4430,6 +4430,13 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	}
 }
 
+void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src);
+void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src);
+void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
+void draw_lower_screen_3(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
+void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
+void draw_lower_screen_default2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src);
+
 void draw_lower_screen_9(BYTE* dst, BYTE* src);
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
@@ -4728,188 +4735,24 @@ void drawLowerScreen(BYTE *pBuff)
 			tbl = &pLightTbl[256 * light_table_index];
 			cel_type_16 = (unsigned short)level_cel_block >> 12;
 			switch (cel_type_16) {
-			case 0: // lower (solid), with lighting
-				xx_32 = 32;
-				do {
-					if (dst < gpBufEnd) {
-						asm_cel_light_square(8, tbl, &dst, &src);
-					} else {
-						src += 32;
-						dst += 32;
-					}
-					dst -= 800;
-					--xx_32;
-				} while (xx_32);
-				break;
-			case 1: // lower (solid), with lighting
-				xx_32 = 32;
-				do {
-					yy_32 = 32;
-					do {
-						width = (unsigned char)*src++;
-						if ((width & 0x80u) == 0) {
-							yy_32 -= width;
-							if (dst < gpBufEnd) {
-								asm_cel_light_edge(width, tbl, &dst, &src);
-							} else {
-								src += width;
-								dst += width;
-							}
-						} else {
-							_LOBYTE(width) = -(char)width;
-							dst += width;
-							yy_32 -= width;
-						}
-					} while (yy_32);
-					dst -= 800;
-					--xx_32;
-				} while (xx_32);
-				break;
-			case 2: // lower (solid), with lighting
-				xx_32 = 30;
-				if (pBuff >= gpBufEnd) {
-					tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-					if (tile_42_45 > 45) {
-						dst = pBuff - 12288;
-						src += 288;
-					LABEL_68:
-						yy_32 = 2;
-						if (dst >= gpBufEnd) {
-							tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-							if (tile_42_45 > 42)
-								return;
-							world_tbl = WorldTbl3x16[tile_42_45];
-							src += WorldTbl17_2[world_tbl >> 2];
-							dst -= 192 * world_tbl;
-							yy_32 = (world_tbl >> 1) + 2;
-						}
-						do {
-							dst += yy_32;
-							src += (32 - (BYTE)yy_32) & 2;
-							asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-							yy_32 += 2;
-							dst -= 800;
-						} while (yy_32 != 32);
-						return;
-					}
-					world_tbl = WorldTbl3x16[tile_42_45];
-					src += WorldTbl17_1[world_tbl >> 2];
-					dst -= 192 * world_tbl;
-					xx_32 = 30 - (world_tbl >> 1);
-				}
-				do {
-					dst += xx_32;
-					src += (32 - (BYTE)xx_32) & 2;
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					dst -= 800;
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-				goto LABEL_68;
-			case 3: // lower (solid), with lighting
-				xx_32 = 30;
-				if (pBuff >= gpBufEnd) {
-					tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-					if (tile_42_45 > 45) {
-						dst = pBuff - 12288;
-						src += 288;
-					LABEL_83:
-						yy_32 = 2;
-						if (dst >= gpBufEnd) {
-							tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-							if (tile_42_45 > 42)
-								return;
-							world_tbl = WorldTbl3x16[tile_42_45];
-							src += WorldTbl17_2[world_tbl >> 2];
-							dst -= 192 * world_tbl;
-							yy_32 = (world_tbl >> 1) + 2;
-						}
-						do {
-							asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-							src += (unsigned char)src & 2;
-							dst = &dst[yy_32 - 800];
-							yy_32 += 2;
-						} while (yy_32 != 32);
-						return;
-					}
-					world_tbl = WorldTbl3x16[tile_42_45];
-					src += WorldTbl17_1[world_tbl >> 2];
-					dst -= 192 * world_tbl;
-					xx_32 = 30 - (world_tbl >> 1);
-				}
-				do {
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					src += (unsigned char)src & 2;
-					dst = &dst[xx_32 - 800];
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-				goto LABEL_83;
-			case 4: // lower (solid), with lighting
-				xx_32 = 30;
-				if (pBuff >= gpBufEnd) {
-					tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-					if (tile_42_45 > 45) {
-						dst = pBuff - 12288;
-						src += 288;
-					LABEL_100:
-						i = 16;
-						do {
-							if (dst < gpBufEnd) {
-								asm_cel_light_square(8, tbl, &dst, &src);
-							} else {
-								src += 32;
-								dst += 32;
-							}
-							dst -= 800;
-							--i;
-						} while (i);
-						return;
-					}
-					world_tbl = WorldTbl3x16[tile_42_45];
-					src += WorldTbl17_1[world_tbl >> 2];
-					dst -= 192 * world_tbl;
-					xx_32 = 30 - (world_tbl >> 1);
-				}
-				do {
-					dst += xx_32;
-					src += (32 - (BYTE)xx_32) & 2;
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					dst -= 800;
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-				goto LABEL_100;
-			default: // lower (solid), with lighting
-				xx_32 = 30;
-				if (pBuff >= gpBufEnd) {
-					tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-					if (tile_42_45 > 45) {
-						dst = pBuff - 12288;
-						src += 288;
-					LABEL_116:
-						j = 16;
-						do {
-							if (dst < gpBufEnd) {
-								asm_cel_light_square(8, tbl, &dst, &src);
-							} else {
-								src += 32;
-								dst += 32;
-							}
-							dst -= 800;
-							--j;
-						} while (j);
-						return;
-					}
-					world_tbl = WorldTbl3x16[tile_42_45];
-					src += WorldTbl17_1[world_tbl >> 2];
-					dst -= 192 * world_tbl;
-					xx_32 = 30 - (world_tbl >> 1);
-				}
-				do {
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					src += (unsigned char)src & 2;
-					dst = &dst[xx_32 - 800];
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-				goto LABEL_116;
+        case 0:
+          draw_lower_screen_0(tbl, dst, src);
+          break;
+        case 1:
+          draw_lower_screen_1(tbl, dst, src);
+          break;
+        case 2:
+          draw_lower_screen_2(tbl, pBuff, dst, src);
+          break;
+        case 3:
+          draw_lower_screen_3(tbl, pBuff, dst, src);
+          break;
+        case 4:
+          draw_lower_screen_4(tbl, pBuff, dst, src);
+          break;
+        default:
+          draw_lower_screen_default2(tbl, pBuff, dst, src);
+          break;
 			}
 			return;
 		}
@@ -4943,6 +4786,198 @@ void drawLowerScreen(BYTE *pBuff)
       draw_lower_screen_default(pBuff, dst, src, true);
       break;
 	}
+}
+
+void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src) {
+  int xx_32 = 32;
+  do {
+    if (dst < gpBufEnd) {
+      asm_cel_light_square(8, tbl, &dst, &src);
+    } else {
+      src += 32;
+      dst += 32;
+    }
+    dst -= 800;
+    --xx_32;
+  } while (xx_32);
+}
+
+void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
+	int xx_32 = 32;
+  do {
+    int yy_32 = 32;
+    do {
+      int width = (unsigned char)*src++;
+      if ((width & 0x80u) == 0) {
+        yy_32 -= width;
+        if (dst < gpBufEnd) {
+          asm_cel_light_edge(width, tbl, &dst, &src);
+        } else {
+          src += width;
+          dst += width;
+        }
+      } else {
+        _LOBYTE(width) = -(char)width;
+        dst += width;
+        yy_32 -= width;
+      }
+    } while (yy_32);
+    dst -= 800;
+    --xx_32;
+  } while (xx_32);
+}
+
+void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
+  int xx_32 = 30;
+  if (pBuff >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 45) {
+      dst = pBuff - 12288;
+      src += 288;
+    LABEL_68:
+      int yy_32 = 2;
+      if (dst >= gpBufEnd) {
+        tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
+        if (tile_42_45 > 42)
+          return;
+        int world_tbl = WorldTbl3x16[tile_42_45];
+        src += WorldTbl17_2[world_tbl >> 2];
+        dst -= 192 * world_tbl;
+        yy_32 = (world_tbl >> 1) + 2;
+      }
+      do {
+        dst += yy_32;
+        src += (32 - (BYTE)yy_32) & 2;
+        asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
+        yy_32 += 2;
+        dst -= 800;
+      } while (yy_32 != 32);
+      return;
+    }
+    int world_tbl = WorldTbl3x16[tile_42_45];
+    src += WorldTbl17_1[world_tbl >> 2];
+    dst -= 192 * world_tbl;
+    xx_32 = 30 - (world_tbl >> 1);
+  }
+  do {
+    dst += xx_32;
+    src += (32 - (BYTE)xx_32) & 2;
+    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+    dst -= 800;
+    xx_32 -= 2;
+  } while (xx_32 >= 0);
+  goto LABEL_68;
+}
+
+void draw_lower_screen_3(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
+  int xx_32 = 30;
+  if (pBuff >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 45) {
+      dst = pBuff - 12288;
+      src += 288;
+    LABEL_83:
+      int yy_32 = 2;
+      if (dst >= gpBufEnd) {
+        tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
+        if (tile_42_45 > 42)
+          return;
+        int world_tbl = WorldTbl3x16[tile_42_45];
+        src += WorldTbl17_2[world_tbl >> 2];
+        dst -= 192 * world_tbl;
+        yy_32 = (world_tbl >> 1) + 2;
+      }
+      do {
+        asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
+        src += (unsigned char)src & 2;
+        dst = &dst[yy_32 - 800];
+        yy_32 += 2;
+      } while (yy_32 != 32);
+      return;
+    }
+    int world_tbl = WorldTbl3x16[tile_42_45];
+    src += WorldTbl17_1[world_tbl >> 2];
+    dst -= 192 * world_tbl;
+    xx_32 = 30 - (world_tbl >> 1);
+  }
+  do {
+    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+    src += (unsigned char)src & 2;
+    dst = &dst[xx_32 - 800];
+    xx_32 -= 2;
+  } while (xx_32 >= 0);
+  goto LABEL_83;
+}
+
+void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
+  int xx_32 = 30;
+  if (pBuff >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 45) {
+      dst = pBuff - 12288;
+      src += 288;
+    LABEL_100:
+      int i = 16;
+      do {
+        if (dst < gpBufEnd) {
+          asm_cel_light_square(8, tbl, &dst, &src);
+        } else {
+          src += 32;
+          dst += 32;
+        }
+        dst -= 800;
+        --i;
+      } while (i);
+      return;
+    }
+    int world_tbl = WorldTbl3x16[tile_42_45];
+    src += WorldTbl17_1[world_tbl >> 2];
+    dst -= 192 * world_tbl;
+    xx_32 = 30 - (world_tbl >> 1);
+  }
+  do {
+    dst += xx_32;
+    src += (32 - (BYTE)xx_32) & 2;
+    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+    dst -= 800;
+    xx_32 -= 2;
+  } while (xx_32 >= 0);
+  goto LABEL_100;
+}
+
+void draw_lower_screen_default2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
+  int xx_32 = 30;
+  if (pBuff >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 45) {
+      dst = pBuff - 12288;
+      src += 288;
+    LABEL_116:
+      int j = 16;
+      do {
+        if (dst < gpBufEnd) {
+          asm_cel_light_square(8, tbl, &dst, &src);
+        } else {
+          src += 32;
+          dst += 32;
+        }
+        dst -= 800;
+        --j;
+      } while (j);
+      return;
+    }
+    int world_tbl = WorldTbl3x16[tile_42_45];
+    src += WorldTbl17_1[world_tbl >> 2];
+    dst -= 192 * world_tbl;
+    xx_32 = 30 - (world_tbl >> 1);
+  }
+  do {
+    asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
+    src += (unsigned char)src & 2;
+    dst = &dst[xx_32 - 800];
+    xx_32 -= 2;
+  } while (xx_32 >= 0);
+  goto LABEL_116;
 }
 
 void world_copy_block(BYTE* dst, BYTE* src, int height) {
