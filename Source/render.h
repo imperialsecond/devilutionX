@@ -10,8 +10,6 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask);
 void drawLowerScreen(BYTE *pBuff);
 
 void world_draw_black_tile(BYTE *pBuff);
-// Copies a 32*height square from src (32 pixels wide) to dst (768 pixels wide).
-void world_copy_block(BYTE* dst, BYTE* src, int height);
 
 /* rdata */
 

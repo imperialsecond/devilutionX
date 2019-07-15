@@ -4432,36 +4432,35 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 
 void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src);
 void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src);
-void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 
 void draw_lower_screen_9(BYTE* dst, BYTE* src);
-void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
-
-static void copy_light_triangle_fn(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  if (some_flag) {
-    asm_cel_light_transform(shift, tbl, dst, src);
-    src += shift & 2;
-  } else {
-    src += shift & 2;
-    asm_cel_light_transform(shift, tbl, dst + 32 - shift, src);
-  }
-  src += shift;
-  dst -= 768;
-}
-
-static void copy_triangle_fn(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  if (some_flag) {
-    memcpy(dst, src, shift);
-    src += shift & 2;
-  } else {
-    src += shift & 2;
-    memcpy(dst + 32 - shift, src, shift);
-  }
-  src += shift;
-  dst -= 768;
-}
 
 using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
+void draw_lower_screen_default(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn);
+
+static void copy_light_pixels(BYTE* tbl, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
+  if (some_flag) {
+    asm_cel_light_transform(width, tbl, dst, src);
+    src += width & 2;
+  } else {
+    src += width & 2;
+    asm_cel_light_transform(width, tbl, dst + 32 - width, src);
+  }
+  src += width;
+  dst -= 768;
+}
+
+static void copy_pixels(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
+  if (some_flag) {
+    memcpy(dst, src, width);
+    src += width & 2;
+  } else {
+    src += width & 2;
+    memcpy(dst + 32 - width, src, width);
+  }
+  src += width;
+  dst -= 768;
+}
 
 void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
   if (pBuff < gpBufEnd) {
@@ -4799,16 +4798,16 @@ void drawLowerScreen(BYTE *pBuff)
           draw_lower_screen_1(tbl, dst, src);
           break;
         case 2:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_triangle_fn);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_pixels);
           break;
         case 3:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_triangle_fn);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_pixels);
           break;
         case 4:
-          draw_lower_screen_4(tbl, pBuff, dst, src, false);
+          draw_lower_screen_default(tbl, pBuff, dst, src, false, copy_light_pixels);
           break;
         default:
-          draw_lower_screen_4(tbl, pBuff, dst, src, true);
+          draw_lower_screen_default(tbl, pBuff, dst, src, true, copy_light_pixels);
           break;
 			}
 			return;
@@ -4825,22 +4824,24 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 	switch (cel_type_16) {
     case 8:
-      world_copy_block(dst, src, 32);
+      for (int i = 0; i < 32; ++i) {
+        copy_pixels(nullptr, dst, src, 32, false);
+      }
       break;
     case 9:
       draw_lower_screen_9(dst, src);
       break;
     case 10:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_triangle_fn);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_pixels);
       break;
     case 11:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_triangle_fn);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_pixels);
       break;
     case 12:
-      draw_lower_screen_default(pBuff, dst, src, false);
+      draw_lower_screen_default(nullptr, pBuff, dst, src, false, copy_pixels);
       break;
     default:
-      draw_lower_screen_default(pBuff, dst, src, true);
+      draw_lower_screen_default(nullptr, pBuff, dst, src, true, copy_pixels);
       break;
 	}
 }
@@ -4875,55 +4876,6 @@ void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
   }
 }
 
-static void world_transform_block(BYTE* tbl, BYTE* dst, BYTE* src, int height) {
-  for (int i = 0; i < height; ++i) {
-    if (dst < gpBufEnd) {
-      asm_cel_light_transform(32, tbl, dst, src);
-    }
-    src += 32;
-    dst -= 768;
-  }
-}
-
-void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
-  int xx_32 = 30;
-  if (pBuff >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = pBuff - 16 * 768;
-      src += 288;
-      world_transform_block(tbl, dst, src, 16);
-      return;
-    }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
-  }
-  for (; xx_32 >= 0; xx_32 -= 2) {
-    if (some_flag) {
-      asm_cel_light_transform(32 - xx_32, tbl, dst, src);
-      src += (32 - xx_32) & 2;
-    } else {
-      src += (32 - xx_32) & 2;
-      asm_cel_light_transform(32 - xx_32, tbl, dst + xx_32, src);
-    }
-    src += 32 - xx_32;
-    dst -= 768;
-  }
-  world_transform_block(tbl, dst, src, 16);
-}
-
-void world_copy_block(BYTE* dst, BYTE* src, int height) {
-  for (int i = 0; i < height; ++i) {
-    if (dst < gpBufEnd) {
-      memcpy(dst, src, 32);
-    }
-    src += 32;
-    dst -= 768;
-  }
-}
-
 void draw_lower_screen_9(BYTE* dst, BYTE* src) {
   for (int y = 0; y < 32; ++y) {
     for (int x = 0; x < 32; ) {
@@ -4942,14 +4894,16 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src) {
   }
 }
 
-void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
+void draw_lower_screen_default(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
   int xx_32 = 30;
   if (pBuff >= gpBufEnd) {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
     if (tile_42_45 > 45) {
       dst = pBuff - 16 * 768;
       src += 288;
-      world_copy_block(dst, src, 16);
+      for (int i = 0; i < 16; ++i) {
+        fn(tbl, dst, src, 32, some_flag);
+      }
       return;
     }
     int world_tbl = WorldTbl3x16[tile_42_45];
@@ -4958,17 +4912,11 @@ void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag
     xx_32 = 30 - (world_tbl >> 1);
   }
   for (; xx_32 >= 0; xx_32 -= 2) {
-    if (some_flag) {
-      memcpy(dst, src, 32 - xx_32);
-      src += (32 - xx_32) & 2;
-    } else {
-      src += (32 - xx_32) & 2;
-      memcpy(dst + xx_32, src, 32 - xx_32);
-    }
-    src += 32 - xx_32;
-    dst -= 768;
+    fn(tbl, dst, src, 32 - xx_32, some_flag);
   }
-  world_copy_block(dst, src, 16);
+  for (int i = 0; i < 16; ++i) {
+    fn(tbl, dst, src, 32, some_flag);
+  }
 }
 
 void world_draw_black_tile(BYTE *pBuff)

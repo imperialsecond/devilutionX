@@ -27,32 +27,6 @@ TEST(RenderTest, TestWorldDrawBlackTile) {
   }
 }
 
-TEST(RenderTest, TestWorldCopySquare) {
-  Buffer buffer;
-  BufferInit(&buffer);
-
-  dvl::gpBufEnd = &buffer[600][0];
-
-  uint8_t source[32][32];
-  for (int x = 0; x < 32; ++x) {
-    for (int y = 0; y < 32; ++y) {
-      source[y][x] = x+y;
-    }
-  }
-  dvl::world_copy_block(&buffer[31][0], &source[0][0], 32);
-
-  for (int y = 0; y < 64; ++y) {
-    for (int x = 0; x < 64; ++x) {
-      if (x < 32 && y < 32) {
-        // src is upside down relative to dst.
-        EXPECT_EQ(buffer[y][x], x+(31-y)) << x << "/" << y;
-      } else {
-        EXPECT_EQ(buffer[y][x], 255) << x << "/" << y;
-      }
-    }
-  }
-}
-
 namespace dvl {
 #include "_asm.cpp"
 }
