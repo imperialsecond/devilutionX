@@ -4430,9 +4430,7 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	}
 }
 
-void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src);
 void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src);
-
 void draw_lower_screen_9(BYTE* dst, BYTE* src);
 
 using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
@@ -4792,7 +4790,9 @@ void drawLowerScreen(BYTE *pBuff)
 			cel_type_16 = (unsigned short)level_cel_block >> 12;
 			switch (cel_type_16) {
         case 0:
-          draw_lower_screen_0(tbl, dst, src);
+          for (int i = 0; i < 32; ++i) {
+            copy_light_pixels(tbl, dst, src, 32, false);
+          }
           break;
         case 1:
           draw_lower_screen_1(tbl, dst, src);
@@ -4844,16 +4844,6 @@ void drawLowerScreen(BYTE *pBuff)
       draw_lower_screen_default(nullptr, pBuff, dst, src, true, copy_pixels);
       break;
 	}
-}
-
-void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src) {
-  for (int i = 0; i < 32; ++i) {
-    if (dst < gpBufEnd) {
-      asm_cel_light_transform(32, tbl, dst, src);
-    }
-    src += 32;
-    dst -= 768;
-  }
 }
 
 void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
