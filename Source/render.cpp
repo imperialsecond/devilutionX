@@ -4459,6 +4459,17 @@ static void copy_pixels(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag
   dst -= 768;
 }
 
+static void copy_black(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
+  if (some_flag) {
+    memset(dst, 0, width);
+  } else {
+    memset(dst + 32 - width, 0, width);
+  }
+  src += width & 2;
+  src += width;
+  dst -= 768;
+}
+
 void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
   if (pBuff < gpBufEnd) {
     for (int i = 2; i <= 32; i += 2) {
@@ -4538,248 +4549,26 @@ void drawLowerScreen(BYTE *pBuff)
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			cel_type_16 = (level_cel_block >> 12) & 7;
 			switch (cel_type_16) {
-			case 0: // lower (solid), black
-				i = 32;
-				do {
-					if (dst < gpBufEnd) {
-						j = 8;
-						do {
-							*(DWORD *)dst = 0;
-							dst += 4;
-							--j;
-						} while (j);
-					} else {
-						src += 32;
-						dst += 32;
-					}
-					dst -= 800;
-					--i;
-				} while (i);
-				break;
-			case 1: // lower (solid), black
-				xx_32 = 32;
-				do {
-					yy_32 = 32;
-					do {
-						while (1) {
-							width = (unsigned char)*src++;
-							if ((width & 0x80u) == 0)
-								break;
-							_LOBYTE(width) = -(char)width;
-							dst += width;
-							yy_32 -= width;
-							if (!yy_32)
-								goto LABEL_232;
-						}
-						yy_32 -= width;
-						if (dst < gpBufEnd) {
-							src += width;
-							chk_sh_and = width >> 1;
-							if (width & 1) {
-								dst[0] = 0;
-								++dst;
-							}
-							if (chk_sh_and) {
-								n_draw_shift = width >> 2;
-								if (chk_sh_and & 1) {
-									*(WORD *)dst = 0;
-									dst += 2;
-								}
-								if (n_draw_shift) {
-									do {
-										*(DWORD *)dst = 0;
-										dst += 4;
-										--n_draw_shift;
-									} while (n_draw_shift);
-								}
-							}
-						} else {
-							src += width;
-							dst += width;
-						}
-					} while (yy_32);
-				LABEL_232:
-					dst -= 800;
-					--xx_32;
-				} while (xx_32);
-				break;
-			case 2: // lower (solid), black
-				for (i = 30;; i -= 2) {
-					if (dst < gpBufEnd) {
-						dst += i;
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst += 32;
-					}
-					dst -= 800;
-					if (!i)
-						break;
-				}
-				i = 2;
-				do {
-					if (dst < gpBufEnd) {
-						dst += i;
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst += 32;
-					}
-					dst -= 800;
-					i += 2;
-				} while (i != 32);
-				break;
-			case 3: // lower (solid), black
-				for (i = 30;; i -= 2) {
-					if (dst < gpBufEnd) {
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst = &dst[32 - i];
-					}
-					dst -= 800;
-					if (!i)
-						break;
-					dst += i;
-				}
-				i = 2;
-				do {
-					if (dst < gpBufEnd) {
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst = &dst[32 - i];
-					}
-					dst = &dst[i - 800];
-					i += 2;
-				} while (i != 32);
-				break;
-			case 4: // lower (solid), black
-				for (i = 30;; i -= 2) {
-					if (dst < gpBufEnd) {
-						dst += i;
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst += 32;
-					}
-					dst -= 800;
-					if (!i)
-						break;
-				}
-				i = 16;
-				do {
-					if (dst < gpBufEnd) {
-						j = 8;
-						do {
-							*(DWORD *)dst = 0;
-							dst += 4;
-							--j;
-						} while (j);
-					} else {
-						src += 32;
-						dst += 32;
-					}
-					dst -= 800;
-					--i;
-				} while (i);
-				break;
-			default: // lower (solid), black
-				for (i = 30;; i -= 2) {
-					if (dst < gpBufEnd) {
-						n_draw_shift = (unsigned int)(32 - i) >> 2;
-						if ((32 - i) & 2) {
-							*(WORD *)dst = 0;
-							dst += 2;
-						}
-						if (n_draw_shift) {
-							do {
-								*(DWORD *)dst = 0;
-								dst += 4;
-								--n_draw_shift;
-							} while (n_draw_shift);
-						}
-					} else {
-						src = &src[32 - i];
-						dst = &dst[32 - i];
-					}
-					dst -= 800;
-					if (!i)
-						break;
-					dst += i;
-				}
-				i = 16;
-				do {
-					if (dst < gpBufEnd) {
-						j = 8;
-						do {
-							*(DWORD *)dst = 0;
-							dst += 4;
-							--j;
-						} while (j);
-					} else {
-						src += 32;
-						dst += 32;
-					}
-					dst -= 800;
-					--i;
-				} while (i);
-				break;
+        case 0:
+          for (int i = 0; i < 32; ++i) {
+            copy_black(nullptr, dst, src, 32, false);
+          }
+          break;
+        case 1:
+          draw_lower_screen_9(nullptr, dst, src, copy_black);
+          break;
+        case 2:
+          draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_black);
+          break;
+        case 3:
+          draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_black);
+          break;
+        case 4:
+          draw_lower_screen_default(nullptr, pBuff, dst, src, false, copy_black);
+          break;
+        default:
+          draw_lower_screen_default(nullptr, pBuff, dst, src, true, copy_black);
+          break;
 			}
 			return;
 		}
