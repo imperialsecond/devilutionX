@@ -4440,7 +4440,7 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src);
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 
-static void copy_light_triangle_a(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+static void copy_light_triangle_fn(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
   if (some_flag) {
     asm_cel_light_transform(shift, tbl, dst, src);
     src += shift & 2;
@@ -4452,36 +4452,12 @@ static void copy_light_triangle_a(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, 
   dst -= 768;
 }
 
-static void copy_light_triangle_b(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  if (some_flag) {
-    asm_cel_light_transform(shift, tbl, dst, src);
-    src += shift & 2;
-  } else {
-    src += shift & 2;
-    asm_cel_light_transform(shift, tbl, dst + 32 - shift, src);
-  }
-  src += shift;
-  dst -= 768;
-}
-
-static void copy_triangle_a(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+static void copy_triangle_fn(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
   if (some_flag) {
     memcpy(dst, src, shift);
     src += shift & 2;
   } else {
     src += shift & 2;
-    memcpy(dst + 32 - shift, src, shift);
-  }
-  src += shift;
-  dst -= 768;
-}
-
-static void copy_triangle_b(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  if (some_flag) {
-    memcpy(dst, src, shift);
-    src += (shift) & 2;
-  } else {
-    src += (shift) & 2;
     memcpy(dst + 32 - shift, src, shift);
   }
   src += shift;
@@ -4490,10 +4466,10 @@ static void copy_triangle_b(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_
 
 using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
 
-void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn_a, copy_fn* fn_b) {
+void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
   if (pBuff < gpBufEnd) {
     for (int i = 2; i <= 32; i += 2) {
-      fn_a(tbl, dst, src, i, some_flag);
+      fn(tbl, dst, src, i, some_flag);
     }
   } else {
     int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
@@ -4503,7 +4479,7 @@ void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool s
       dst -= 768 * world_tbl;
       int xx_32 = (world_tbl + 1) * 2;
       for (int i = xx_32; i <= 32; i += 2) {
-        fn_a(tbl, dst, src, i, some_flag);
+        fn(tbl, dst, src, i, some_flag);
       }
     } else {
       dst = pBuff - 16 * 768;
@@ -4521,7 +4497,7 @@ void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool s
     yy_32 = 32 - (world_tbl + 1) * 2;
   }
   for (int i = yy_32; i > 0; i -= 2) {
-    fn_b(tbl, dst, src, i, some_flag);
+    fn(tbl, dst, src, i, some_flag);
   }
 }
 
@@ -4826,10 +4802,10 @@ void drawLowerScreen(BYTE *pBuff)
           draw_lower_screen_1(tbl, dst, src);
           break;
         case 2:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_triangle_a, copy_light_triangle_b);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_triangle_fn);
           break;
         case 3:
-          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_triangle_a, copy_light_triangle_b);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_triangle_fn);
           break;
         case 4:
           draw_lower_screen_4(tbl, pBuff, dst, src);
@@ -4858,10 +4834,10 @@ void drawLowerScreen(BYTE *pBuff)
       draw_lower_screen_9(dst, src);
       break;
     case 10:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_triangle_a, copy_triangle_b);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_triangle_fn);
       break;
     case 11:
-      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_triangle_a, copy_triangle_b);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_triangle_fn);
       break;
     case 12:
       draw_lower_screen_default(pBuff, dst, src, false);
