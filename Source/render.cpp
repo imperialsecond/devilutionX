@@ -4505,7 +4505,8 @@ void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool s
   }
 }
 
-static void dispatch_draw_for_cel_type(int cel_type_16, BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, copy_fn* fn) {
+static void dispatch_draw_for_cel_type(int level_cel_block, BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, copy_fn* fn) {
+  int cel_type_16 = level_cel_block >> 12;
 	switch (cel_type_16 & 7) {
     case 0:
       for (int i = 0; i < 32; ++i) {
@@ -4535,16 +4536,6 @@ void drawLowerScreen(BYTE *pBuff)
 	unsigned char *dst;        // edi MAPDST
 	unsigned char *src;        // esi MAPDST
 	unsigned char *tbl;        // ebx
-	short cel_type_16;         // ax MAPDST
-	int xx_32;                 // edx MAPDST
-	int yy_32;                 // ebp MAPDST
-	unsigned int chk_sh_and;   // ecx MAPDST
-	signed int tile_42_45;     // eax MAPDST
-	unsigned int world_tbl;    // ecx MAPDST
-	unsigned int n_draw_shift; // ecx MAPDST
-	unsigned int width;        // eax MAPDST
-	signed int i;              // edx MAPDST
-	signed int j;              // ecx MAPDST
 
 	if (cel_transparency_active) {
 		if (!arch_draw_type) {
@@ -4572,28 +4563,24 @@ void drawLowerScreen(BYTE *pBuff)
 				level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
 				    + (unsigned short)(level_cel_block & 0xF000);
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-			cel_type_16 = (level_cel_block >> 12) & 7;
-      dispatch_draw_for_cel_type(cel_type_16, nullptr, pBuff, dst, src, copy_black);
+      dispatch_draw_for_cel_type(level_cel_block, nullptr, pBuff, dst, src, copy_black);
 			return;
 		}
 		if (!(level_cel_block & 0x8000)) {
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			tbl = &pLightTbl[256 * light_table_index];
-			cel_type_16 = level_cel_block >> 12;
-      dispatch_draw_for_cel_type(cel_type_16, tbl, pBuff, dst, src, copy_light_pixels);
+      dispatch_draw_for_cel_type(level_cel_block, tbl, pBuff, dst, src, copy_light_pixels);
 			return;
 		}
 		src = (unsigned char *)pSpeedCels
 		    + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
-		cel_type_16 = level_cel_block >> 12;
 	} else {
 		if (level_cel_block & 0x8000)
 			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
 			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		cel_type_16 = level_cel_block >> 12;
 	}
-  dispatch_draw_for_cel_type(cel_type_16, nullptr, pBuff, dst, src, copy_pixels);
+  dispatch_draw_for_cel_type(level_cel_block, nullptr, pBuff, dst, src, copy_pixels);
 }
 
 void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
