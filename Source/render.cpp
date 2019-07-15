@@ -4789,42 +4789,33 @@ void drawLowerScreen(BYTE *pBuff)
 }
 
 void draw_lower_screen_0(BYTE* tbl, BYTE* dst, BYTE* src) {
-  int xx_32 = 32;
-  do {
+  for (int i = 0; i < 32; ++i) {
     if (dst < gpBufEnd) {
-      asm_cel_light_square(8, tbl, &dst, &src);
-    } else {
-      src += 32;
-      dst += 32;
+      asm_cel_light_transform(32, tbl, dst, src);
     }
-    dst -= 800;
-    --xx_32;
-  } while (xx_32);
+    src += 32;
+    dst -= 768;
+  }
 }
 
 void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
-	int xx_32 = 32;
-  do {
+  for (int i = 0; i < 32; ++i) {
     int yy_32 = 32;
     do {
       int width = (unsigned char)*src++;
       if ((width & 0x80u) == 0) {
-        yy_32 -= width;
         if (dst < gpBufEnd) {
-          asm_cel_light_edge(width, tbl, &dst, &src);
-        } else {
-          src += width;
-          dst += width;
+          asm_cel_light_transform(width, tbl, dst, src);
         }
+        src += width;
       } else {
         _LOBYTE(width) = -(char)width;
-        dst += width;
-        yy_32 -= width;
       }
+      dst += width;
+      yy_32 -= width;
     } while (yy_32);
     dst -= 800;
-    --xx_32;
-  } while (xx_32);
+  }
 }
 
 void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
