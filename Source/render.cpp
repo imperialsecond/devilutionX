@@ -4430,10 +4430,9 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	}
 }
 
-void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src);
-void draw_lower_screen_9(BYTE* dst, BYTE* src);
-
 using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
+
+void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn);
 void draw_lower_screen_default(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn);
 
 static void copy_light_pixels(BYTE* tbl, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
@@ -4795,7 +4794,7 @@ void drawLowerScreen(BYTE *pBuff)
           }
           break;
         case 1:
-          draw_lower_screen_1(tbl, dst, src);
+          draw_lower_screen_9(tbl, dst, src, copy_light_pixels);
           break;
         case 2:
           draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_pixels);
@@ -4829,7 +4828,7 @@ void drawLowerScreen(BYTE *pBuff)
       }
       break;
     case 9:
-      draw_lower_screen_9(dst, src);
+      draw_lower_screen_9(nullptr, dst, src, copy_pixels);
       break;
     case 10:
       draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_pixels);
@@ -4846,41 +4845,24 @@ void drawLowerScreen(BYTE *pBuff)
 	}
 }
 
-void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
-  for (int i = 0; i < 32; ++i) {
-    int yy_32 = 32;
-    do {
-      int width = (unsigned char)*src++;
-      if ((width & 0x80u) == 0) {
-        if (dst < gpBufEnd) {
-          asm_cel_light_transform(width, tbl, dst, src);
-        }
-        src += width;
-      } else {
-        _LOBYTE(width) = -(char)width;
-      }
-      dst += width;
-      yy_32 -= width;
-    } while (yy_32);
-    dst -= 800;
-  }
-}
-
-void draw_lower_screen_9(BYTE* dst, BYTE* src) {
+void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
   for (int y = 0; y < 32; ++y) {
     for (int x = 0; x < 32; ) {
       int width = (unsigned char)*src++;
       if (width >= 0x80) {
         _LOBYTE(width) = -(char)width;
+        dst += width;
       } else {
-        if (dst < gpBufEnd) {
-          memcpy(dst + x, src, width);
-        }
-        src += width;
+        fn(tbl, dst, src, width, true);
+        dst += width;
+        // fn moves to the next line; not appropriate here.
+        dst += 768;
+        // undo alignment adjustment.
+        src -= width & 2;
       }
       x += width;
     } 
-    dst -= 768;
+    dst -= 800;
   }
 }
 
