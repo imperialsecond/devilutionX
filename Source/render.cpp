@@ -4440,6 +4440,93 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src);
 void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag);
 
+static void copy_light_triangle_a(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift >= 0; shift -= 2) {
+    if (some_flag) {
+      asm_cel_light_transform(32 - shift, tbl, dst, src);
+      src += (32 - shift) & 2;
+    } else {
+      src += (32 - shift) & 2;
+      asm_cel_light_transform(32 - shift, tbl, dst + shift, src);
+    }
+    src += 32 - shift;
+    dst -= 768;
+  } 
+}
+
+static void copy_light_triangle_b(BYTE* tbl, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift < 32; shift += 2) {
+    if (some_flag) {
+      asm_cel_light_transform(32 - shift, tbl, dst, src);
+      src += (32 - shift) & 2;
+    } else {
+      src += (32 - shift) & 2;
+      asm_cel_light_transform(32 - shift, tbl, dst + shift, src);
+    }
+    src += 32 - shift;
+    dst -= 768;
+  } 
+}
+
+static void copy_triangle_a(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift >= 0; shift -= 2) {
+    if (some_flag) {
+      memcpy(dst, src, 32 - shift);
+      src += (32 - shift) & 2;
+    } else {
+      src += (32 - shift) & 2;
+      memcpy(dst + shift, src, 32 - shift);
+    }
+    src += 32 - shift;
+    dst -= 768;
+  }
+}
+
+static void copy_triangle_b(BYTE*, BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
+  for (; shift < 32; shift += 2) {
+    if (some_flag) {
+      memcpy(dst, src, 32 - shift);
+      src += (32 - shift) & 2;
+    } else {
+      src += (32 - shift) & 2;
+      memcpy(dst + shift, src, 32 - shift);
+    }
+    src += 32 - shift;
+    dst -= 768;
+  }
+}
+
+using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
+
+void draw_lower_screen_2_11(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn_a, copy_fn* fn_b) {
+  if (pBuff < gpBufEnd) {
+    fn_a(tbl, dst, src, 30, some_flag);
+  } else {
+    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 <= 45) {
+      int world_tbl = tile_42_45 / 3;
+      src += WorldTbl17_1[world_tbl];
+      dst -= 768 * world_tbl;
+      int xx_32 = 30 - world_tbl * 2;
+      fn_a(tbl, dst, src, xx_32, some_flag);
+    } else {
+      dst = pBuff - 16 * 768;
+      src += 288;
+    }
+  }
+  int yy_32 = 2;
+  if (dst >= gpBufEnd) {
+    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
+    if (tile_42_45 > 42)
+      return;
+    int world_tbl = tile_42_45 / 3;
+    src += WorldTbl17_2[world_tbl];
+    dst -= 768 * world_tbl;
+    yy_32 = (world_tbl + 1) * 2;
+  }
+  fn_b(tbl, dst, src, yy_32, some_flag);
+}
+
 void drawLowerScreen(BYTE *pBuff)
 {
 	unsigned char *dst;        // edi MAPDST
@@ -4741,10 +4828,10 @@ void drawLowerScreen(BYTE *pBuff)
           draw_lower_screen_1(tbl, dst, src);
           break;
         case 2:
-          draw_lower_screen_2(tbl, pBuff, dst, src, false);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, false, copy_light_triangle_a, copy_light_triangle_b);
           break;
         case 3:
-          draw_lower_screen_2(tbl, pBuff, dst, src, true);
+          draw_lower_screen_2_11(tbl, pBuff, dst, src, true, copy_light_triangle_a, copy_light_triangle_b);
           break;
         case 4:
           draw_lower_screen_4(tbl, pBuff, dst, src);
@@ -4773,10 +4860,10 @@ void drawLowerScreen(BYTE *pBuff)
       draw_lower_screen_9(dst, src);
       break;
     case 10:
-      draw_lower_screen_11(pBuff, dst, src, false);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, false, copy_triangle_a, copy_triangle_b);
       break;
     case 11:
-      draw_lower_screen_11(pBuff, dst, src, true);
+      draw_lower_screen_2_11(nullptr, pBuff, dst, src, true, copy_triangle_a, copy_triangle_b);
       break;
     case 12:
       draw_lower_screen_default(pBuff, dst, src, false);
@@ -4815,62 +4902,6 @@ void draw_lower_screen_1(BYTE* tbl, BYTE* dst, BYTE* src) {
     } while (yy_32);
     dst -= 800;
   }
-}
-
-void draw_lower_screen_2(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
-  int xx_32 = 30;
-  if (pBuff >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = pBuff - 12288;
-      src += 288;
-    LABEL_68:
-      int yy_32 = 2;
-      if (dst >= gpBufEnd) {
-        tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-        if (tile_42_45 > 42)
-          return;
-        int world_tbl = WorldTbl3x16[tile_42_45];
-        src += WorldTbl17_2[world_tbl >> 2];
-        dst -= 192 * world_tbl;
-        yy_32 = (world_tbl >> 1) + 2;
-      }
-      do {
-        if (some_flag) {
-          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-          src += (unsigned char)src & 2;
-          dst = &dst[yy_32 - 800];
-          yy_32 += 2;
-        } else {
-          dst += yy_32;
-          src += (32 - (BYTE)yy_32) & 2;
-          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-          yy_32 += 2;
-          dst -= 800;
-        }
-      } while (yy_32 != 32);
-      return;
-    }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
-  }
-  do {
-    if (some_flag) {
-      asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-      src += (unsigned char)src & 2;
-      dst = &dst[xx_32 - 800];
-      xx_32 -= 2;
-    } else {
-      dst += xx_32;
-      src += (32 - (BYTE)xx_32) & 2;
-      asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-      dst -= 800;
-      xx_32 -= 2;
-    }
-  } while (xx_32 >= 0);
-  goto LABEL_68;
 }
 
 void draw_lower_screen_4(BYTE* tbl, BYTE* pBuff, BYTE* dst, BYTE* src) {
@@ -4970,63 +5001,6 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src) {
     } 
     dst -= 768;
   }
-}
-
-static void copy_triangle_a(BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  for (; shift >= 0; shift -= 2) {
-    if (some_flag) {
-      memcpy(dst, src, 32 - shift);
-      src += (32 - shift) & 2;
-    } else {
-      src += (32 - shift) & 2;
-      memcpy(dst + shift, src, 32 - shift);
-    }
-    src += 32 - shift;
-    dst -= 768;
-  }
-}
-
-static void copy_triangle_b(BYTE*& dst, BYTE*& src, int shift, bool some_flag) {
-  for (; shift < 32; shift += 2) {
-    if (some_flag) {
-      memcpy(dst, src, 32 - shift);
-      src += (32 - shift) & 2;
-    } else {
-      src += (32 - shift) & 2;
-      memcpy(dst + shift, src, 32 - shift);
-    }
-    src += 32 - shift;
-    dst -= 768;
-  }
-}
-
-void draw_lower_screen_11(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
-  if (pBuff < gpBufEnd) {
-    copy_triangle_a(dst, src, 30, some_flag);
-  } else {
-    int tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 <= 45) {
-      int world_tbl = tile_42_45 / 3;
-      src += WorldTbl17_1[world_tbl];
-      dst -= 768 * world_tbl;
-      int xx_32 = 30 - world_tbl * 2;
-      copy_triangle_a(dst, src, xx_32, some_flag);
-    } else {
-      dst = pBuff - 16 * 768;
-      src += 288;
-    }
-  }
-  int yy_32 = 2;
-  if (dst >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 42)
-      return;
-    int world_tbl = tile_42_45 / 3;
-    src += WorldTbl17_2[world_tbl];
-    dst -= 768 * world_tbl;
-    yy_32 = (world_tbl + 1) * 2;
-  }
-  copy_triangle_b(dst, src, yy_32, some_flag);
 }
 
 void draw_lower_screen_default(BYTE* pBuff, BYTE* dst, BYTE* src, bool some_flag) {
