@@ -1,4 +1,5 @@
 #include "diablo.h"
+#include <algorithm>
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -90,6 +91,16 @@ int WorldTbl3x16[48] = {
 // slope/angle tables, left and right
 int WorldTbl17_1[17] = { 0, 4, 8, 16, 24, 36, 48, 64, 80, 100, 120, 144, 168, 196, 224, 256, 288 };
 int WorldTbl17_2[17] = { 0, 32, 60, 88, 112, 136, 156, 176, 192, 208, 220, 232, 240, 248, 252, 256, 288 };
+
+int trianglePixelsToSkip(int rows_to_skip) {
+  // Row Pixels
+  // 0   4 (2 + 2 alignment)
+  // 1   4
+  // 2   8 (6 + 2 alignment)
+  // 3   8
+  // 4   12
+  return rows_to_skip * (rows_to_skip + 2) + (rows_to_skip & 1);
+}
 
 /*
  32x32 arch types
@@ -4603,24 +4614,14 @@ void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
 }
 
 void draw_lower_screen_default(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
-  int xx_32 = 30;
+  int triangle_start_row = 0;
   if (dst >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 45) {
-      dst = dst - 16 * 768;
-      src += 288;
-      for (int i = 0; i < 16; ++i) {
-        fn(tbl, dst, src, 32, some_flag);
-      }
-      return;
-    }
-    int world_tbl = WorldTbl3x16[tile_42_45];
-    src += WorldTbl17_1[world_tbl >> 2];
-    dst -= 192 * world_tbl;
-    xx_32 = 30 - (world_tbl >> 1);
+    triangle_start_row = std::min(16l, (dst - gpBufEnd + 1023) / 768);
+    dst -= triangle_start_row * 768;
+    src += trianglePixelsToSkip(triangle_start_row);
   }
-  for (; xx_32 >= 0; xx_32 -= 2) {
-    fn(tbl, dst, src, 32 - xx_32, some_flag);
+  for (int i = triangle_start_row; i < 16; ++i) {
+    fn(tbl, dst, src, 2 * (i+1), some_flag);
   }
   for (int i = 0; i < 16; ++i) {
     fn(tbl, dst, src, 32, some_flag);
