@@ -4447,34 +4447,44 @@ void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn);
 void draw_lower_screen_default(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn);
 
 static void copy_light_pixels(BYTE* tbl, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (some_flag) {
-    asm_cel_light_transform(width, tbl, dst, src);
-    src += width & 2;
+  if (dst < gpBufEnd) {
+    if (some_flag) {
+      asm_cel_light_transform(width, tbl, dst, src);
+      src += width & 2;
+    } else {
+      src += width & 2;
+      asm_cel_light_transform(width, tbl, dst + 32 - width, src);
+    }
   } else {
-    src += width & 2;
-    asm_cel_light_transform(width, tbl, dst + 32 - width, src);
+    src += width&2;
   }
   src += width;
   dst -= 768;
 }
 
 static void copy_pixels(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (some_flag) {
-    memcpy(dst, src, width);
-    src += width & 2;
+  if (dst < gpBufEnd) {
+    if (some_flag) {
+      memcpy(dst, src, width);
+      src += width & 2;
+    } else {
+      src += width & 2;
+      memcpy(dst + 32 - width, src, width);
+    }
   } else {
     src += width & 2;
-    memcpy(dst + 32 - width, src, width);
   }
   src += width;
   dst -= 768;
 }
 
 static void copy_black(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (some_flag) {
-    memset(dst, 0, width);
-  } else {
-    memset(dst + 32 - width, 0, width);
+  if (dst < gpBufEnd) {
+    if (some_flag) {
+      memset(dst, 0, width);
+    } else {
+      memset(dst + 32 - width, 0, width);
+    }
   }
   src += width & 2;
   src += width;
@@ -4482,36 +4492,10 @@ static void copy_black(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag)
 }
 
 void draw_lower_screen_2_11(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
-  if (dst < gpBufEnd) {
-    for (int i = 2; i <= 32; i += 2) {
-      fn(tbl, dst, src, i, some_flag);
-    }
-  } else {
-    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 <= 45) {
-      int world_tbl = tile_42_45 / 3;
-      src += WorldTbl17_1[world_tbl];
-      dst -= 768 * world_tbl;
-      int xx_32 = (world_tbl + 1) * 2;
-      for (int i = xx_32; i <= 32; i += 2) {
-        fn(tbl, dst, src, i, some_flag);
-      }
-    } else {
-      dst -= 16 * 768;
-      src += 288;
-    }
+  for (int i = 0; i < 16; ++i) {
+    fn(tbl, dst, src, (i + 1) * 2, some_flag);
   }
-  int yy_32 = 30;
-  if (dst >= gpBufEnd) {
-    int tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-    if (tile_42_45 > 42)
-      return;
-    int world_tbl = tile_42_45 / 3;
-    src += WorldTbl17_2[world_tbl];
-    dst -= 768 * world_tbl;
-    yy_32 = 32 - (world_tbl + 1) * 2;
-  }
-  for (int i = yy_32; i > 0; i -= 2) {
+  for (int i = 30; i > 0; i -= 2) {
     fn(tbl, dst, src, i, some_flag);
   }
 }
@@ -4614,13 +4598,7 @@ void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
 }
 
 void draw_lower_screen_default(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
-  int triangle_start_row = 0;
-  if (dst >= gpBufEnd) {
-    triangle_start_row = std::min(16l, (dst - gpBufEnd + 1023) / 768);
-    dst -= triangle_start_row * 768;
-    src += trianglePixelsToSkip(triangle_start_row);
-  }
-  for (int i = triangle_start_row; i < 16; ++i) {
+  for (int i = 0; i < 16; ++i) {
     fn(tbl, dst, src, 2 * (i+1), some_flag);
   }
   for (int i = 0; i < 16; ++i) {
