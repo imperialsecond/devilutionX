@@ -124,10 +124,11 @@ struct copy {
 };
 
 struct copy_with_mask {
-  uint32_t mask;
+  uint32_t* mask;
 
   void operator()(BYTE* dst, BYTE* src, int width) {
-    maskcpy(dst, src, mask, width);
+    maskcpy(dst, src, *mask, width);
+    --mask;
   }
 };
 
@@ -145,6 +146,24 @@ struct copy_black {
   }
 };
 
+template <typename A, typename B>
+struct copy_mixed {
+  A a;
+  B b;
+
+  int calls = 0;
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    if (calls < 16) a(dst, src, width);
+    else b(dst, src, width);
+    ++calls;
+  }
+};
+
+template <typename A, typename B>
+copy_mixed<A, B> make_copy_mixed(A&& a, B&& b) {
+  return {a, b};
+}
+
 template <typename F>
 void draw_lower_screen_2_11(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
   for (int i = 0; i < 16; ++i) {
@@ -155,6 +174,15 @@ void draw_lower_screen_2_11(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
   }
 }
 
+template <typename F>
+void draw_lower_screen_default(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
+  for (int i = 0; i < 16; ++i) {
+    copy_pixels(dst, src, 2 * (i+1), some_flag, f);
+  }
+  for (int i = 0; i < 16; ++i) {
+    copy_pixels(dst, src, 32, some_flag, f);
+  }
+}
 
 /*
  32x32 arch types
@@ -4058,12 +4086,14 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 		cel_type_16 = ((level_cel_block >> 12) & 7) + 8;
 	}
 	switch (cel_type_16) {
-	case 8: // lower (bottom transparent), without lighting
+	case 8: { // lower (bottom transparent), without lighting
+    copy_with_mask mask{gpDrawMask};
     for (int i = 0; i < 32; ++i) {
-      copy_pixels(dst, src, 32, false, copy_with_mask{*gpDrawMask});
-			--gpDrawMask;
+      copy_pixels(dst, src, 32, false, mask);
 		}
+    gpDrawMask -= 32;
 		break;
+  }
 	case 9: // lower (bottom transparent), without lighting
 		xx_32 = 32;
 		do {
@@ -4108,24 +4138,12 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
     draw_lower_screen_2_11(dst, src, true, copy{});
     return;
 	case 12: // lower (bottom transparent), without lighting
-    for (int i = 0; i < 16; ++i) {
-      copy_pixels(dst, src, 2 * (i+1), false, copy{});
-    }
-    gpDrawMask -= 16;
-    for (int i = 0; i < 16; ++i) {
-      copy_pixels(dst, src, 32, false, copy_with_mask{*gpDrawMask});
-      --gpDrawMask;
-    }
+    draw_lower_screen_default(dst, src, false, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
+    gpDrawMask -= 32;
     return;
 	default: // lower (bottom transparent), without lighting
-    for (int i = 0; i < 16; ++i) {
-      copy_pixels(dst, src, 2 * (i+1), true, copy{});
-    }
-    gpDrawMask -= 16;
-    for (int i = 0; i < 16; ++i) {
-      copy_pixels(dst, src, 32, true, copy_with_mask{*gpDrawMask});
-      --gpDrawMask;
-    }
+    draw_lower_screen_default(dst, src, true, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
+    gpDrawMask -= 32;
     return;
 	}
 }
@@ -4149,16 +4167,6 @@ void draw_lower_screen_9(BYTE* dst, BYTE* src, F&& f) {
       x += width;
     } 
     dst -= 800;
-  }
-}
-
-template <typename F>
-void draw_lower_screen_default(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
-  for (int i = 0; i < 16; ++i) {
-    copy_pixels(dst, src, 2 * (i+1), some_flag, f);
-  }
-  for (int i = 0; i < 16; ++i) {
-    copy_pixels(dst, src, 32, some_flag, f);
   }
 }
 
