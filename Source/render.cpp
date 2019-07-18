@@ -140,6 +140,16 @@ struct copy_with_light {
   }
 };
 
+struct copy_with_masked_light {
+  BYTE* tbl;
+  uint32_t* mask;
+
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    asm_trans_light_mask(width, tbl, &dst, &src, *mask);
+    --mask;
+  }
+};
+
 struct copy_black {
   void operator()(BYTE* dst, BYTE* src, int width) {
     memset(dst, 0, width);
@@ -4001,76 +4011,23 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 					--xx_32;
 				} while (xx_32);
 				break;
-			case 2: // lower (bottom transparent), with lighting
-				xx_32 = 30;
-				do {
-					dst += xx_32;
-					src += (32 - (BYTE)xx_32) & 2;
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					dst -= 800;
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-        yy_32 = 2;
-        do {
-          dst += yy_32;
-          src += (32 - (BYTE)yy_32) & 2;
-          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-          yy_32 += 2;
-          dst -= 800;
-        } while (yy_32 != 32);
+      case 2:
+        draw_lower_screen_2_11(dst, src, false, copy_with_light{tbl});
         return;
-			case 3: // lower (bottom transparent), with lighting
-				xx_32 = 30;
-				do {
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					src += (unsigned char)src & 2;
-					dst = &dst[xx_32 - 800];
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-        yy_32 = 2;
-        do {
-          asm_cel_light_edge(32 - yy_32, tbl, &dst, &src);
-          /// BUGFIX: uncomment this line
-          // src += (unsigned char)src & 2;
-          dst = &dst[yy_32 - 800];
-          yy_32 += 2;
-        } while (yy_32 != 32);
+      case 3:
+        draw_lower_screen_2_11(dst, src, true, copy_with_light{tbl});
         return;
-			case 4: // lower (bottom transparent), with lighting
-				xx_32 = 30;
-				do {
-					dst += xx_32;
-					src += (32 - (BYTE)xx_32) & 2;
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					dst -= 800;
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-        gpDrawMask -= 16;
-        yy_32 = 16;
-        do {
-          asm_trans_light_mask(32, tbl, &dst, &src, *gpDrawMask);
-          dst -= 800;
-          --gpDrawMask;
-          --yy_32;
-        } while (yy_32);
+      case 4:
+        draw_lower_screen_default(dst, src, false, 
+            make_copy_mixed(copy_with_light{tbl},
+                            copy_with_masked_light{tbl, gpDrawMask - 16}));
+        gpDrawMask -= 32;
         return;
-			default: // lower (bottom transparent), with lighting
-				xx_32 = 30;
-				do {
-					asm_cel_light_edge(32 - xx_32, tbl, &dst, &src);
-					src += (unsigned char)src & 2;
-					dst = &dst[xx_32 - 800];
-					xx_32 -= 2;
-				} while (xx_32 >= 0);
-        gpDrawMask -= 16;
-        yy_32 = 16;
-        do {
-          asm_trans_light_mask(32, tbl, &dst, &src, *gpDrawMask);
-          src += (unsigned char)src & 2;
-          dst -= 800;
-          --gpDrawMask;
-          --yy_32;
-        } while (yy_32);
+      default: // lower (bottom transparent), without lighting
+        draw_lower_screen_default(dst, src, true,
+            make_copy_mixed(copy_with_light{tbl},
+                            copy_with_masked_light{tbl, gpDrawMask - 16}));
+        gpDrawMask -= 32;
         return;
 			}
 			return;
