@@ -175,6 +175,17 @@ struct copy_checkerboard {
   }
 };
 
+struct copy_checkerboard_light {
+  bool flag;
+  BYTE* tbl;
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    for (int i = flag ? 1 : 0; i < width; i += 2) {
+      dst[i] = tbl[src[i]];
+    }
+    flag = !flag;
+  }
+};
+
 template <typename A, typename B>
 struct copy_mixed {
   A a;
@@ -3050,213 +3061,20 @@ void drawTopArchesLowerScreen(BYTE *pBuff)
 				--xx_32;
 			} while (xx_32);
 			break;
-		case 2: // lower (top transparent), with lighting
-      WorldBoolFlag = 0;
-			xx_32 = 30;
-			if (pBuff >= gpBufEnd) {
-				tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-				if (tile_42_45 > 45) {
-					dst = pBuff - 12288;
-					src += 288;
-				LABEL_98:
-					yy_32 = 2;
-					if (dst >= gpBufEnd) {
-						tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-						if (tile_42_45 > 42)
-							return;
-						world_tbl = WorldTbl3x16[tile_42_45];
-						src += WorldTbl17_2[world_tbl >> 2];
-						dst -= 192 * world_tbl;
-						world_tbl >>= 1;
-						yy_32 = world_tbl + 2;
-						WorldBoolFlag += world_tbl >> 1;
-					}
-					do {
-						dst += yy_32;
-						src += (32 - (BYTE)yy_32) & 2;
-						WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-						if (WorldBoolFlag) {
-							asm_trans_light_cel_0_2(32 - yy_32, tbl, &dst, &src);
-						} else {
-							asm_trans_light_cel_1_3(32 - yy_32, tbl, &dst, &src);
-						}
-						dst -= 800;
-						yy_32 += 2;
-					} while (yy_32 != 32);
-					return;
-				}
-				world_tbl = WorldTbl3x16[tile_42_45];
-				src += WorldTbl17_1[world_tbl >> 2];
-				dst -= 192 * world_tbl;
-				world_tbl >>= 1;
-				xx_32 = 30 - world_tbl;
-				WorldBoolFlag += world_tbl >> 1;
-			}
-			do {
-				dst += xx_32;
-				src += (32 - (BYTE)xx_32) & 2;
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-				if (WorldBoolFlag) {
-					asm_trans_light_cel_0_2(32 - xx_32, tbl, &dst, &src);
-				} else {
-					asm_trans_light_cel_1_3(32 - xx_32, tbl, &dst, &src);
-				}
-				dst -= 800;
-				xx_32 -= 2;
-			} while (xx_32 >= 0);
-			goto LABEL_98;
-		case 3: // lower (top transparent), with lighting
-			WorldBoolFlag = 0;
-			xx_32 = 30;
-			if (pBuff >= gpBufEnd) {
-				tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-				if (tile_42_45 > 45) {
-					dst = pBuff - 12288;
-					src += 288;
-				LABEL_154:
-					yy_32 = 2;
-					if (dst >= gpBufEnd) {
-						tile_42_45 = (unsigned int)(dst - gpBufEnd + 1023) >> 8;
-						if (tile_42_45 > 42)
-							return;
-						world_tbl = WorldTbl3x16[tile_42_45];
-						src += WorldTbl17_2[world_tbl >> 2];
-						dst -= 192 * world_tbl;
-						world_tbl >>= 1;
-						yy_32 = world_tbl + 2;
-						WorldBoolFlag += world_tbl >> 1;
-					}
-					do {
-						WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-						if (WorldBoolFlag) {
-							asm_trans_light_cel_0_2(32 - yy_32, tbl, &dst, &src);
-						} else {
-							asm_trans_light_cel_1_3(32 - yy_32, tbl, &dst, &src);
-						}
-						src += (unsigned char)src & 2;
-						dst = &dst[yy_32 - 800];
-						yy_32 += 2;
-					} while (yy_32 != 32);
-					return;
-				}
-				world_tbl = WorldTbl3x16[tile_42_45];
-				src += WorldTbl17_1[world_tbl >> 2];
-				dst -= 192 * world_tbl;
-				world_tbl >>= 1;
-				xx_32 = 30 - world_tbl;
-				WorldBoolFlag += world_tbl >> 1;
-			}
-			do {
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-				if (WorldBoolFlag) {
-					asm_trans_light_cel_0_2(32 - xx_32, tbl, &dst, &src);
-				} else {
-					asm_trans_light_cel_1_3(32 - xx_32, tbl, &dst, &src);
-				}
-				src += (unsigned char)src & 2;
-				dst = &dst[xx_32 - 800];
-				xx_32 -= 2;
-			} while (xx_32 >= 0);
-			goto LABEL_154;
-		case 4: // lower (top transparent), with lighting
-			WorldBoolFlag = 0;
-			xx_32 = 30;
-			if (pBuff >= gpBufEnd) {
-				tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-				if (tile_42_45 > 45) {
-					dst = pBuff - 12288;
-					src += 288;
-				LABEL_210:
-					i = 8;
-					do {
-						if (dst < gpBufEnd) {
-							asm_trans_light_square_1_3(8, tbl, &dst, &src);
-						} else {
-							src += 32;
-							dst += 32;
-						}
-						dst -= 800;
-						if (dst < gpBufEnd) {
-							asm_trans_light_square_0_2(8, tbl, &dst, &src);
-						} else {
-							src += 32;
-							dst += 32;
-						}
-						dst -= 800;
-						--i;
-					} while (i);
-					return;
-				}
-				world_tbl = WorldTbl3x16[tile_42_45];
-				src += WorldTbl17_1[world_tbl >> 2];
-				dst -= 192 * world_tbl;
-				world_tbl >>= 1;
-				xx_32 = 30 - world_tbl;
-				WorldBoolFlag += world_tbl >> 1;
-			}
-			do {
-				dst += xx_32;
-				src += (32 - (BYTE)xx_32) & 2;
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-				if (WorldBoolFlag) {
-					asm_trans_light_cel_0_2(32 - xx_32, tbl, &dst, &src);
-				} else {
-					asm_trans_light_cel_1_3(32 - xx_32, tbl, &dst, &src);
-				}
-				dst -= 800;
-				xx_32 -= 2;
-			} while (xx_32 >= 0);
-			goto LABEL_210;
-		default: // lower (top transparent), with lighting
-			WorldBoolFlag = 0;
-			xx_32 = 30;
-			if (pBuff >= gpBufEnd) {
-				tile_42_45 = (unsigned int)(pBuff - gpBufEnd + 1023) >> 8;
-				if (tile_42_45 > 45) {
-					dst = pBuff - 12288;
-					src += 288;
-				LABEL_249:
-					i = 8;
-					do {
-						if (dst < gpBufEnd) {
-							asm_trans_light_square_1_3(8, tbl, &dst, &src);
-						} else {
-							src += 32;
-							dst += 32;
-						}
-						dst -= 800;
-						if (dst < gpBufEnd) {
-							asm_trans_light_square_0_2(8, tbl, &dst, &src);
-						} else {
-							src += 32;
-							dst += 32;
-						}
-						dst -= 800;
-						--i;
-					} while (i);
-					return;
-				}
-				world_tbl = WorldTbl3x16[tile_42_45];
-				src += WorldTbl17_1[world_tbl >> 2];
-				dst -= 192 * world_tbl;
-				world_tbl >>= 1;
-				xx_32 = 30 - world_tbl;
-				WorldBoolFlag += world_tbl >> 1;
-			}
-			do {
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-				if (WorldBoolFlag) {
-					asm_trans_light_cel_0_2(32 - xx_32, tbl, &dst, &src);
-				} else {
-					asm_trans_light_cel_1_3(32 - xx_32, tbl, &dst, &src);
-				}
-				src += (unsigned char)src & 2;
-				dst = &dst[xx_32 - 800];
-				xx_32 -= 2;
-			} while (xx_32 >= 0);
-			goto LABEL_249;
-		}
-		return;
+    case 2: // lower (top transparent), with lighting
+      draw_lower_screen_2_11(dst, src, false, copy_checkerboard_light{true, tbl});
+      return;
+    case 3: // lower (top transparent), with lighting
+      draw_lower_screen_2_11(dst, src, true, copy_checkerboard_light{true, tbl});
+      return;
+    case 4: // lower (top transparent), with lighting
+      draw_lower_screen_default(dst, src, false, copy_checkerboard_light{true, tbl});
+      return;
+    default: // lower (top transparent), with lighting
+      draw_lower_screen_default(dst, src, true, copy_checkerboard_light{true, tbl});
+      return;
+    }
+    return;
 	}
 	src = (unsigned char *)pSpeedCels + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
 	cel_type_16 = (unsigned char)(level_cel_block >> 12);
