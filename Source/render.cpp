@@ -92,15 +92,69 @@ int WorldTbl3x16[48] = {
 int WorldTbl17_1[17] = { 0, 4, 8, 16, 24, 36, 48, 64, 80, 100, 120, 144, 168, 196, 224, 256, 288 };
 int WorldTbl17_2[17] = { 0, 32, 60, 88, 112, 136, 156, 176, 192, 208, 220, 232, 240, 248, 252, 256, 288 };
 
-int trianglePixelsToSkip(int rows_to_skip) {
-  // Row Pixels
-  // 0   4 (2 + 2 alignment)
-  // 1   4
-  // 2   8 (6 + 2 alignment)
-  // 3   8
-  // 4   12
-  return rows_to_skip * (rows_to_skip + 2) + (rows_to_skip & 1);
+void maskcpy(BYTE* dst, BYTE* src, uint32_t mask, int width) {
+  for (int i = 0; i < width; ++i) {
+    if ((mask << i) & 0x80000000) {
+      dst[i] = src[i];
+    }
+  }
 }
+
+template <typename F>
+static void copy_pixels(BYTE*& dst, BYTE*& src, int width, bool some_flag, F&& f) {
+  if (dst < gpBufEnd) {
+    if (some_flag) {
+      f(dst, src, width);
+      src += width & 2;
+    } else {
+      src += width & 2;
+      f(dst + 32 - width, src, width);
+    }
+  } else {
+    src += width & 2;
+  }
+  src += width;
+  dst -= 768;
+}
+
+struct copy {
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    memcpy(dst, src, width);
+  }
+};
+
+struct copy_with_mask {
+  uint32_t mask;
+
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    maskcpy(dst, src, mask, width);
+  }
+};
+
+struct copy_with_light {
+  BYTE* tbl;
+
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    asm_cel_light_transform(width, tbl, dst, src);
+  }
+};
+
+struct copy_black {
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    memset(dst, 0, width);
+  }
+};
+
+template <typename F>
+void draw_lower_screen_2_11(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
+  for (int i = 0; i < 16; ++i) {
+    copy_pixels(dst, src, (i + 1) * 2, some_flag, f);
+  }
+  for (int i = 30; i > 0; i -= 2) {
+    copy_pixels(dst, src, i, some_flag, f);
+  }
+}
+
 
 /*
  32x32 arch types
@@ -4005,22 +4059,10 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	}
 	switch (cel_type_16) {
 	case 8: // lower (bottom transparent), without lighting
-		yy_32 = 32;
-		do {
-      left_shift = *gpDrawMask;
-      i = 32;
-      do {
-        if (left_shift & 0x80000000)
-          dst[0] = src[0];
-        left_shift *= 2;
-        ++src;
-        ++dst;
-        --i;
-      } while (i);
-			dst -= 800;
+    for (int i = 0; i < 32; ++i) {
+      copy_pixels(dst, src, 32, false, copy_with_mask{*gpDrawMask});
 			--gpDrawMask;
-			--yy_32;
-		} while (yy_32);
+		}
 		break;
 	case 9: // lower (bottom transparent), without lighting
 		xx_32 = 32;
@@ -4060,237 +4102,89 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 		} while (xx_32);
 		break;
 	case 10: // lower (bottom transparent), without lighting
-		xx_32 = 30;
-		do {
-			dst += xx_32;
-			n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
-			if ((32 - xx_32) & 2) {
-				*(WORD *)dst = *((WORD *)src + 1);
-				src += 4;
-				dst += 2;
-			}
-			if (n_draw_shift) {
-				do {
-					*(DWORD *)dst = *(DWORD *)src;
-					src += 4;
-					dst += 4;
-					--n_draw_shift;
-				} while (n_draw_shift);
-			}
-			dst -= 800;
-			xx_32 -= 2;
-		} while (xx_32 >= 0);
-    yy_32 = 2;
-    do {
-      dst += yy_32;
-      n_draw_shift = (unsigned int)(32 - yy_32) >> 2;
-      if ((32 - yy_32) & 2) {
-        *(WORD *)dst = *((WORD *)src + 1);
-        src += 4;
-        dst += 2;
-      }
-      if (n_draw_shift) {
-        do {
-          *(DWORD *)dst = *(DWORD *)src;
-          src += 4;
-          dst += 4;
-          --n_draw_shift;
-        } while (n_draw_shift);
-      }
-      dst -= 800;
-      yy_32 += 2;
-    } while (yy_32 != 32);
+    draw_lower_screen_2_11(dst, src, false, copy{});
     return;
 	case 11: // lower (bottom transparent), without lighting
-		xx_32 = 30;
-    do {
-      for (n_draw_shift = (unsigned int)(32 - xx_32) >> 2; n_draw_shift; --n_draw_shift) {
-        *(DWORD *)dst = *(DWORD *)src;
-        src += 4;
-        dst += 4;
-      }
-      if ((32 - (BYTE)xx_32) & 2) {
-        *(WORD *)dst = *(WORD *)src;
-        src += 4;
-        dst += 2;
-      }
-      dst = &dst[xx_32 - 800];
-      xx_32 -= 2;
-    } while (xx_32 >= 0);
-		yy_32 = 2;
-		do {
-			for (n_draw_shift = (unsigned int)(32 - yy_32) >> 2; n_draw_shift; --n_draw_shift) {
-				*(DWORD *)dst = *(DWORD *)src;
-				src += 4;
-				dst += 4;
-			}
-			if ((32 - (BYTE)yy_32) & 2) {
-				*(WORD *)dst = *(WORD *)src;
-				src += 4;
-				dst += 2;
-			}
-			dst = &dst[yy_32 - 800];
-			yy_32 += 2;
-		} while (yy_32 != 32);
-		break;
+    draw_lower_screen_2_11(dst, src, true, copy{});
+    return;
 	case 12: // lower (bottom transparent), without lighting
-		xx_32 = 30;
-		do {
-			dst += xx_32;
-			n_draw_shift = (unsigned int)(32 - xx_32) >> 2;
-			if ((32 - xx_32) & 2) {
-				*(WORD *)dst = *((WORD *)src + 1);
-				src += 4;
-				dst += 2;
-			}
-			if (n_draw_shift) {
-				do {
-					*(DWORD *)dst = *(DWORD *)src;
-					src += 4;
-					dst += 4;
-					--n_draw_shift;
-				} while (n_draw_shift);
-			}
-			dst -= 800;
-			xx_32 -= 2;
-		} while (xx_32 >= 0);
+    for (int i = 0; i < 16; ++i) {
+      copy_pixels(dst, src, 2 * (i+1), false, copy{});
+    }
     gpDrawMask -= 16;
-    yy_32 = 16;
-    do {
-      left_shift = *gpDrawMask;
-      i = 32;
-      do {
-        if (left_shift & 0x80000000)
-          dst[0] = src[0];
-        left_shift *= 2;
-        ++src;
-        ++dst;
-        --i;
-      } while (i);
-      dst -= 800;
+    for (int i = 0; i < 16; ++i) {
+      copy_pixels(dst, src, 32, false, copy_with_mask{*gpDrawMask});
       --gpDrawMask;
-      --yy_32;
-    } while (yy_32);
+    }
     return;
 	default: // lower (bottom transparent), without lighting
-		xx_32 = 30;
-		do {
-			for (n_draw_shift = (unsigned int)(32 - xx_32) >> 2; n_draw_shift; --n_draw_shift) {
-				*(DWORD *)dst = *(DWORD *)src;
-				src += 4;
-				dst += 4;
-			}
-			if ((32 - (BYTE)xx_32) & 2) {
-				*(WORD *)dst = *(WORD *)src;
-				src += 4;
-				dst += 2;
-			}
-			dst = &dst[xx_32 - 800];
-			xx_32 -= 2;
-		} while (xx_32 >= 0);
+    for (int i = 0; i < 16; ++i) {
+      copy_pixels(dst, src, 2 * (i+1), true, copy{});
+    }
     gpDrawMask -= 16;
-    yy_32 = 16;
-    do {
-      left_shift = *gpDrawMask;
-      i = 32;
-      do {
-        if (left_shift & 0x80000000)
-          dst[0] = src[0];
-        left_shift *= 2;
-        ++src;
-        ++dst;
-        --i;
-      } while (i);
-      src += (unsigned char)src & 2;
-      dst -= 800;
+    for (int i = 0; i < 16; ++i) {
+      copy_pixels(dst, src, 32, true, copy_with_mask{*gpDrawMask});
       --gpDrawMask;
-      --yy_32;
-    } while (yy_32);
+    }
     return;
 	}
 }
 
-using copy_fn = void(BYTE*, BYTE*&, BYTE*&, int, bool);
-
-void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn);
-void draw_lower_screen_default(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn);
-
-static void copy_light_pixels(BYTE* tbl, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (dst < gpBufEnd) {
-    if (some_flag) {
-      asm_cel_light_transform(width, tbl, dst, src);
-      src += width & 2;
-    } else {
-      src += width & 2;
-      asm_cel_light_transform(width, tbl, dst + 32 - width, src);
-    }
-  } else {
-    src += width&2;
+template <typename F>
+void draw_lower_screen_9(BYTE* dst, BYTE* src, F&& f) {
+  for (int y = 0; y < 32; ++y) {
+    for (int x = 0; x < 32; ) {
+      int width = (unsigned char)*src++;
+      if (width >= 0x80) {
+        _LOBYTE(width) = -(char)width;
+        dst += width;
+      } else {
+        copy_pixels(dst, src, width, true, f);
+        dst += width;
+        // fn moves to the next line; not appropriate here.
+        dst += 768;
+        // undo alignment adjustment.
+        src -= width & 2;
+      }
+      x += width;
+    } 
+    dst -= 800;
   }
-  src += width;
-  dst -= 768;
 }
 
-static void copy_pixels(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (dst < gpBufEnd) {
-    if (some_flag) {
-      memcpy(dst, src, width);
-      src += width & 2;
-    } else {
-      src += width & 2;
-      memcpy(dst + 32 - width, src, width);
-    }
-  } else {
-    src += width & 2;
-  }
-  src += width;
-  dst -= 768;
-}
-
-static void copy_black(BYTE*, BYTE*& dst, BYTE*& src, int width, bool some_flag) {
-  if (dst < gpBufEnd) {
-    if (some_flag) {
-      memset(dst, 0, width);
-    } else {
-      memset(dst + 32 - width, 0, width);
-    }
-  }
-  src += width & 2;
-  src += width;
-  dst -= 768;
-}
-
-void draw_lower_screen_2_11(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
+template <typename F>
+void draw_lower_screen_default(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
   for (int i = 0; i < 16; ++i) {
-    fn(tbl, dst, src, (i + 1) * 2, some_flag);
+    copy_pixels(dst, src, 2 * (i+1), some_flag, f);
   }
-  for (int i = 30; i > 0; i -= 2) {
-    fn(tbl, dst, src, i, some_flag);
+  for (int i = 0; i < 16; ++i) {
+    copy_pixels(dst, src, 32, some_flag, f);
   }
 }
 
-static void dispatch_draw_for_cel_type(int level_cel_block, BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
+template <typename F>
+static void dispatch_draw_for_cel_type(int level_cel_block, BYTE* dst, BYTE* src, F&& f) {
   int cel_type_16 = level_cel_block >> 12;
 	switch (cel_type_16 & 7) {
     case 0:
       for (int i = 0; i < 32; ++i) {
-        fn(tbl, dst, src, 32, false);
+        copy_pixels(dst, src, 32, false, f);
       }
       break;
     case 1:
-      draw_lower_screen_9(tbl, dst, src, fn);
+      draw_lower_screen_9(dst, src, f);
       break;
     case 2:
-      draw_lower_screen_2_11(tbl, dst, src, false, fn);
+      draw_lower_screen_2_11(dst, src, false, f);
       break;
     case 3:
-      draw_lower_screen_2_11(tbl, dst, src, true, fn);
+      draw_lower_screen_2_11(dst, src, true, f);
       break;
     case 4:
-      draw_lower_screen_default(tbl, dst, src, false, fn);
+      draw_lower_screen_default(dst, src, false, f);
       break;
     default:
-      draw_lower_screen_default(tbl, dst, src, true, fn);
+      draw_lower_screen_default(dst, src, true, f);
       break;
 	}
 }
@@ -4325,13 +4219,13 @@ void drawLowerScreen(BYTE *pBuff)
 				level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
 				    + (unsigned short)(level_cel_block & 0xF000);
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-      dispatch_draw_for_cel_type(level_cel_block, nullptr, pBuff, src, copy_black);
+      dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_black{});
 			return;
 		}
 		if (!(level_cel_block & 0x8000)) {
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			tbl = &pLightTbl[256 * light_table_index];
-      dispatch_draw_for_cel_type(level_cel_block, tbl, pBuff, src, copy_light_pixels);
+      dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_with_light{tbl});
 			return;
 		}
 		src = (unsigned char *)pSpeedCels
@@ -4342,37 +4236,7 @@ void drawLowerScreen(BYTE *pBuff)
 			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 	}
-  dispatch_draw_for_cel_type(level_cel_block, nullptr, pBuff, src, copy_pixels);
-}
-
-void draw_lower_screen_9(BYTE* tbl, BYTE* dst, BYTE* src, copy_fn* fn) {
-  for (int y = 0; y < 32; ++y) {
-    for (int x = 0; x < 32; ) {
-      int width = (unsigned char)*src++;
-      if (width >= 0x80) {
-        _LOBYTE(width) = -(char)width;
-        dst += width;
-      } else {
-        fn(tbl, dst, src, width, true);
-        dst += width;
-        // fn moves to the next line; not appropriate here.
-        dst += 768;
-        // undo alignment adjustment.
-        src -= width & 2;
-      }
-      x += width;
-    } 
-    dst -= 800;
-  }
-}
-
-void draw_lower_screen_default(BYTE* tbl, BYTE* dst, BYTE* src, bool some_flag, copy_fn* fn) {
-  for (int i = 0; i < 16; ++i) {
-    fn(tbl, dst, src, 2 * (i+1), some_flag);
-  }
-  for (int i = 0; i < 16; ++i) {
-    fn(tbl, dst, src, 32, some_flag);
-  }
+  dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy{});
 }
 
 void world_draw_black_tile(BYTE *pBuff)
