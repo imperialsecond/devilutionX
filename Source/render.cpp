@@ -156,6 +156,15 @@ struct copy_black {
   }
 };
 
+struct copy_masked_black {
+  uint32_t* mask;
+  void operator()(BYTE* dst, BYTE* src, int width) {
+    static BYTE black[32] { 0 };
+    maskcpy(dst, &black[0], *mask, width);
+    --mask;
+  }
+};
+
 template <typename A, typename B>
 struct copy_mixed {
   A a;
@@ -3820,155 +3829,26 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 					--xx_32;
 				} while (xx_32);
 				break;
-			case 2: // lower (bottom transparent), black
-				for (i = 30;; i -= 2) {
-          dst += i;
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst -= 800;
-					if (!i)
-						break;
-				}
-				i = 2;
-				do {
-          dst += i;
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst -= 800;
-					i += 2;
-				} while (i != 32);
-				break;
-			case 3: // lower (bottom transparent), black
-				for (i = 30;; i -= 2) {
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst -= 800;
-					if (!i)
-						break;
-					dst += i;
-				}
-				i = 2;
-				do {
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst = &dst[i - 800];
-					i += 2;
-				} while (i != 32);
-				break;
-			case 4: // lower (bottom transparent), black
-				for (i = 30;; i -= 2) {
-          dst += i;
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst -= 800;
-					if (!i)
-						break;
-				}
-				gpDrawMask -= 16;
-				yy_32 = 16;
-				do {
-          left_shift = *gpDrawMask;
-          i = 32;
-          do {
-            if (left_shift & 0x80000000)
-              dst[0] = 0;
-            left_shift *= 2;
-            ++dst;
-            --i;
-          } while (i);
-					dst -= 800;
-					--gpDrawMask;
-					--yy_32;
-				} while (yy_32);
-				break;
-			default: // lower (bottom transparent), black
-				for (i = 30;; i -= 2) {
-          n_draw_shift = (unsigned int)(32 - i) >> 2;
-          if ((32 - i) & 2) {
-            *(WORD *)dst = 0;
-            dst += 2;
-          }
-          if (n_draw_shift) {
-            do {
-              *(DWORD *)dst = 0;
-              dst += 4;
-              --n_draw_shift;
-            } while (n_draw_shift);
-          }
-					dst -= 800;
-					if (!i)
-						break;
-					dst += i;
-				}
-				gpDrawMask -= 16;
-				yy_32 = 16;
-				do {
-          left_shift = *gpDrawMask;
-          i = 32;
-          do {
-            if (left_shift & 0x80000000)
-              dst[0] = 0;
-            left_shift *= 2;
-            ++dst;
-            --i;
-          } while (i);
-					dst -= 800;
-					--gpDrawMask;
-					--yy_32;
-				} while (yy_32);
-				break;
-			}
-			return;
+      case 2:
+        draw_lower_screen_2_11(dst, src, false, copy_black{});
+        return;
+      case 3:
+        draw_lower_screen_2_11(dst, src, true, copy_black{});
+        return;
+      case 4:
+        draw_lower_screen_default(dst, src, false, 
+            make_copy_mixed(copy_black{},
+                            copy_masked_black{gpDrawMask - 16}));
+        gpDrawMask -= 32;
+        return;
+      default: // lower (bottom transparent), without lighting
+        draw_lower_screen_default(dst, src, true,
+            make_copy_mixed(copy_black{},
+                            copy_masked_black{gpDrawMask - 16}));
+        gpDrawMask -= 32;
+        return;
+      }
+      return;
 		}
 		if (!(level_cel_block & 0x8000)) {
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
@@ -4088,21 +3968,21 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 			--xx_32;
 		} while (xx_32);
 		break;
-	case 10: // lower (bottom transparent), without lighting
+  case 10: // lower (bottom transparent), without lighting
     draw_lower_screen_2_11(dst, src, false, copy{});
     return;
-	case 11: // lower (bottom transparent), without lighting
+  case 11: // lower (bottom transparent), without lighting
     draw_lower_screen_2_11(dst, src, true, copy{});
     return;
-	case 12: // lower (bottom transparent), without lighting
+  case 12: // lower (bottom transparent), without lighting
     draw_lower_screen_default(dst, src, false, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
     gpDrawMask -= 32;
     return;
-	default: // lower (bottom transparent), without lighting
+  default: // lower (bottom transparent), without lighting
     draw_lower_screen_default(dst, src, true, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
     gpDrawMask -= 32;
     return;
-	}
+  }
 }
 
 template <typename F>
