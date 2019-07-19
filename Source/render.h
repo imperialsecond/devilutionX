@@ -2,8 +2,6 @@
 #ifndef __RENDER_H__
 #define __RENDER_H__
 
-void drawTopArchesUpperScreen(BYTE *pBuff);
-void drawBottomArchesUpperScreen(BYTE *pBuff, unsigned int *pMask);
 void drawUpperScreen(BYTE *pBuff);
 void drawTopArchesLowerScreen(BYTE *pBuff);
 void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask);
@@ -13,6 +11,7 @@ void world_draw_black_tile(BYTE *pBuff);
 
 /* rdata */
 
+extern BYTE *gpBufStart;
 extern int WorldBoolFlag;
 extern unsigned int gdwCurrentMask;
 // extern char world_4B3264;
