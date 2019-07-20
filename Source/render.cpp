@@ -114,18 +114,6 @@ struct trapezoidal_texture {
   }
 };
 
-struct identity {
-  uint8_t operator()(uint8_t src) {
-    return src;
-  }
-};
-
-struct black {
-  uint8_t operator()(uint8_t) {
-    return 0;
-  }
-};
-
 struct masked {
   const uint32_t* mask;
   uint32_t current_mask = 0;
@@ -156,6 +144,9 @@ struct checkered {
 
   void next_row() { active = !active; }
 };
+
+uint8_t identity(uint8_t src) { return src; }
+uint8_t black(uint8_t) { return 0; }
 
 struct lit {
   const uint8_t* tbl;
@@ -235,12 +226,12 @@ static void drawTile(BYTE* dst, Mask&& mask, Transform&& transform) {
 template <typename Mask>
 void applyLighting(BYTE *pBuff, Mask&& mask) {
   if (light_table_index == lightmax) {
-    drawTile(pBuff, mask, black{});
+    drawTile(pBuff, mask, black);
   } else if (light_table_index) {
 	  unsigned char* tbl = &pLightTbl[256 * light_table_index];
     drawTile(pBuff, mask, lit{tbl});
 	} else {
-    drawTile(pBuff, mask, identity{});
+    drawTile(pBuff, mask, identity);
   }
 }
 
