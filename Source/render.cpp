@@ -6,9 +6,6 @@ DEVILUTION_BEGIN_NAMESPACE
 #include "_asm.cpp"
 
 BYTE *gpBufStart;
-int WorldBoolFlag = 0;
-unsigned int gdwCurrentMask = 0;
-unsigned int *gpDrawMask = NULL;
 
 unsigned int RightMask[32] = {
 	0xEAAAAAAA, 0xF5555555,
@@ -67,670 +64,220 @@ unsigned int WallMask[32] = {
 	0xAAAAAAAA, 0x55555555
 };
 
-void maskcpy(BYTE* dst, BYTE* src, uint32_t mask, int width) {
-  for (int i = 0; i < width; ++i) {
-    if ((mask << i) & 0x80000000) {
-      dst[i] = src[i];
+// 0x0 (square).
+template <typename T>
+struct square_texture {
+  T transform;
+  const uint8_t* src;
+  bool operator()(uint8_t* dst) { 
+    return transform(*src++, dst);
+  }
+  void next_row() { transform.next_row(); }
+};
+
+// 0x1 (skip)
+template <typename T>
+struct skip_texture {
+  T transform;
+  const uint8_t* src;
+  int skip = 0;
+  int copy = 0;
+  bool operator()(uint8_t* dst) {
+    if (copy == 0 && skip == 0) {
+      int width = (signed char)*src++;
+      if (width < 0) {
+        skip = -width;
+      } else {
+        copy = width;
+      }
+    }
+    if (copy > 0) {
+      --copy;
+      return transform(*src++, dst);
+    }
+    if (skip > 0) {
+      uint8_t dummy;
+      transform(0, &dummy);
+      --skip;
+      return false;
     }
   }
-}
+  void next_row() {
+    transform.next_row();
+  }
+};
+
+// Triangular (2: <|, 3: |>).
+template <typename T>
+struct triangular_texture {
+  T transform;
+  const uint8_t* src;
+  bool aligned;
+
+  bool operator()(uint8_t* dst) {
+    return transform(*src++, dst);
+  }
+  void next_row() {
+    transform.next_row();
+    aligned = !aligned;
+    if (aligned) src += 2;
+  }
+};
+
+// Trapezoidal 
+//  |-|   4
+//   \|
+//  |-|   5
+//  |/
+template <typename T>
+struct trapezoidal_texture {
+  T transform;
+  const uint8_t* src;
+  bool aligned;
+  int num_rows = 0;
+
+  uint8_t operator()(uint8_t* dst) { return transform(*src++, dst); }
+  void next_row() {
+    transform.next_row();
+    if (++num_rows >= 16) return;
+    aligned = !aligned;
+    if (aligned) src += 2;
+  }
+};
+
+struct identity {
+  bool operator()(uint8_t src, uint8_t* dst) {
+    *dst = src;
+    return true;
+  }
+  void next_row() {}
+};
+
+struct black {
+  uint8_t operator()(uint8_t, uint8_t* dst) {
+    *dst = 0;
+    return true;
+  }
+  void next_row() { }
+};
+
+template <typename N>
+struct masked {
+  const uint32_t* mask;
+  N next;
+  uint32_t current_mask = 0;
+
+  uint8_t operator()(uint8_t src, uint8_t* dst) {
+    bool enable = current_mask & 0x80000000;
+    current_mask <<= 1;
+    if (enable) {
+      return next(src, dst);
+    } else {
+      uint8_t dummy;
+      next(src, &dummy);
+      return false;
+    }
+  }
+
+  void next_row() {
+    next.next_row();
+    current_mask = *mask--;
+  }
+};
+
+template <typename N>
+masked<N> make_masked(const uint32_t* mask, N&& n) { return {mask, n}; }
+
+struct lit {
+  const uint8_t* tbl;
+
+  uint8_t operator()(uint8_t src, uint8_t* dst) {
+    *dst = tbl[src];
+    return true;
+  }
+  void next_row() { }
+};
+
+template <typename N>
+struct checkered {
+  bool active;
+  N next;
+
+  uint8_t operator()(uint8_t src, uint8_t* dst) {
+    active = !active;
+    if (active) {
+      uint8_t dummy;
+      next(src, &dummy);
+      return false;
+    } else {
+      return next(src, dst); 
+    }
+  }
+
+  void next_row() {
+    next.next_row();
+    active = !active;
+  }
+};
+
+template <typename N>
+checkered<N> make_checkered(bool active, N&& n) { return {active, n}; }
 
 template <typename F>
-static void copy_pixels(BYTE*& dst, BYTE*& src, int width, bool some_flag, F&& f) {
+static void copy_pixels(BYTE*& dst, int width, bool some_flag, F&& f) {
+  f.next_row();
+  int offset = some_flag ? 0 : (32 - width);
+  uint8_t dummy;
   if (gpBufStart <= dst && dst < gpBufEnd) {
-    if (some_flag) {
-      f(dst, src, width);
-      src += width & 2;
-    } else {
-      src += width & 2;
-      f(dst + 32 - width, src, width);
-    }
+    for (int i = 0; i < width; ++i) f(dst + offset + i);
   } else {
-    src += width & 2;
+    for (int i = 0; i < width; ++i) f(&dummy);
   }
-  src += width;
   dst -= 768;
 }
 
-struct copy {
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    memcpy(dst, src, width);
-  }
-};
-
-struct copy_with_mask {
-  uint32_t* mask;
-
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    maskcpy(dst, src, *mask, width);
-    --mask;
-  }
-};
-
-struct copy_with_light {
-  BYTE* tbl;
-
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    asm_cel_light_transform(width, tbl, dst, src);
-  }
-};
-
-struct copy_with_masked_light {
-  BYTE* tbl;
-  uint32_t* mask;
-
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    asm_trans_light_mask(width, tbl, &dst, &src, *mask);
-    --mask;
-  }
-};
-
-struct copy_black {
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    memset(dst, 0, width);
-  }
-};
-
-struct copy_masked_black {
-  uint32_t* mask;
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    static BYTE black[32] { 0 };
-    maskcpy(dst, &black[0], *mask, width);
-    --mask;
-  }
-};
-
-struct copy_checkerboard_black {
-  bool flag;
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    for (int i = flag ? 1 : 0; i < width; i += 2) {
-      dst[i] = 0;
-    }
-    flag = !flag;
-  }
-};
-
-struct copy_checkerboard {
-  bool flag;
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    for (int i = flag ? 1 : 0; i < width; i += 2) {
-      dst[i] = src[i];
-    }
-    flag = !flag;
-  }
-};
-
-struct copy_checkerboard_light {
-  bool flag;
-  BYTE* tbl;
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    for (int i = flag ? 1 : 0; i < width; i += 2) {
-      dst[i] = tbl[src[i]];
-    }
-    flag = !flag;
-  }
-};
-
-template <typename A, typename B>
-struct copy_mixed {
-  A a;
-  B b;
-
-  int calls = 0;
-  void operator()(BYTE* dst, BYTE* src, int width) {
-    if (calls < 16) a(dst, src, width);
-    else b(dst, src, width);
-    ++calls;
-  }
-};
-
-template <typename A, typename B>
-copy_mixed<A, B> make_copy_mixed(A&& a, B&& b) {
-  return {a, b};
-}
-
 template <typename F>
-void draw_lower_screen_2_11(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
+void draw_lower_screen_2_11(BYTE* dst, const BYTE* src, bool some_flag, F&& f) {
+  triangular_texture<F> t{f, src, some_flag};
   for (int i = 0; i < 16; ++i) {
-    copy_pixels(dst, src, (i + 1) * 2, some_flag, f);
+    copy_pixels(dst, (i + 1) * 2, some_flag, t);
   }
   for (int i = 30; i > 0; i -= 2) {
-    copy_pixels(dst, src, i, some_flag, f);
+    copy_pixels(dst, i, some_flag, t);
   }
 }
 
 template <typename F>
-void draw_lower_screen_default(BYTE* dst, BYTE* src, bool some_flag, F&& f) {
+void draw_lower_screen_default(BYTE* dst, const BYTE* src, bool some_flag, F&& f) {
+  trapezoidal_texture<F> t{f, src, some_flag};
   for (int i = 0; i < 16; ++i) {
-    copy_pixels(dst, src, 2 * (i+1), some_flag, f);
+    copy_pixels(dst, 2 * (i+1), some_flag, t);
   }
   for (int i = 0; i < 16; ++i) {
-    copy_pixels(dst, src, 32, some_flag, f);
-  }
-}
-
-/*
- 32x32 arch types
- add 8 if light index is 0
-
-	|-| 0x8 (0)
-	|-|
-
-	/\  0x9 (1)
-	\/
-
-	 /| 0xA (2)
-	 \|
-
-	|\  0xB (3)
-	|/
-
-	|-| 0xC (4)
-	 \|
-
-	|-| 0xD (5)
-	|/
-*/
-
-void drawUpperScreen(BYTE *pBuff)
-{
-  drawLowerScreen(pBuff);
-}
-
-void drawTopArchesLowerScreen(BYTE *pBuff)
-{
-	unsigned char *dst;        // edi MAPDST
-	unsigned char *tbl;        // ebx
-	unsigned char *src;        // esi MAPDST
-	short cel_type_16;         // ax MAPDST
-	signed int tile_42_45;     // eax MAPDST
-	unsigned int world_tbl;    // ecx MAPDST
-	unsigned int width;        // eax MAPDST
-	unsigned int chk_sh_and;   // ecx MAPDST
-	int xx_32;                 // edx MAPDST
-	unsigned int x_minus;      // ecx MAPDST
-	unsigned int n_draw_shift; // ecx MAPDST
-	int yy_32;                 // edx MAPDST
-	unsigned int y_minus;      // ecx MAPDST
-	signed int i;              // edx MAPDST
-	signed int j;              // ecx MAPDST
-
-	dst = pBuff;
-	if (!(BYTE)light_table_index) {
-		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		cel_type_16 = ((level_cel_block >> 12) & 7) + 8;
-		goto LABEL_11;
-	}
-	if ((BYTE)light_table_index == lightmax) {
-		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		cel_type_16 = (level_cel_block >> 12) & 7;
-		switch (cel_type_16) {
-		case 0: // lower (top transparent), black
-			i = 16;
-			do {
-				if (dst < gpBufEnd) {
-					j = 8;
-					do {
-						dst[1] = 0;
-						dst[3] = 0;
-						dst += 4;
-						--j;
-					} while (j);
-				} else {
-					src += 32;
-					dst += 32;
-				}
-				dst -= 800;
-				if (dst < gpBufEnd) {
-					j = 8;
-					do {
-						dst[0] = 0;
-						dst[2] = 0;
-						dst += 4;
-						--j;
-					} while (j);
-				} else {
-					src += 32;
-					dst += 32;
-				}
-				dst -= 800;
-				--i;
-			} while (i);
-			break;
-		case 1: // lower (top transparent), black
-			WorldBoolFlag = (unsigned char)pBuff & 1;
-      for (int y = 0; y < 32; ++y) {
-        for (int x = 0; x < 32; ) {
-          int width = (unsigned char)*src++;
-          if (width >= 0x80) {
-            _LOBYTE(width) = -(char)width;
-            dst += width;
-          } else {
-            copy_checkerboard_black{((unsigned int)dst & 1) == WorldBoolFlag}(dst, src, width); 
-            src += width;
-            dst += width;
-          }
-          x += width;
-        } 
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-        dst -= 800;
-      }
-			xx_32 = 32;
-			break;
-		case 2: // lower (top transparent), black
-      draw_lower_screen_2_11(dst, src, false, copy_checkerboard_black{true});
-			break;
-		case 3: // lower (top transparent), black
-      draw_lower_screen_2_11(dst, src, true, copy_checkerboard_black{true});
-			break;
-		case 4: // lower (top transparent), black
-      draw_lower_screen_default(dst, src, false, copy_checkerboard_black{true});
-			break;
-		default: // lower (top transparent), black
-      draw_lower_screen_default(dst, src, true, copy_checkerboard_black{true});
-      break;
-		}
-		return;
-	}
-  src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-  tbl = &pLightTbl[256 * light_table_index];
-  cel_type_16 = (unsigned char)(level_cel_block >> 12);
-  switch (cel_type_16) {
-  case 0: // lower (top transparent), with lighting
-    i = 16;
-    do {
-      if (dst < gpBufEnd) {
-        asm_trans_light_square_1_3(8, tbl, &dst, &src);
-      } else {
-        src += 32;
-        dst += 32;
-      }
-      dst -= 800;
-      if (dst < gpBufEnd) {
-        asm_trans_light_square_0_2(8, tbl, &dst, &src);
-      } else {
-        src += 32;
-        dst += 32;
-      }
-      dst -= 800;
-      --i;
-    } while (i);
-    break;
-  case 1: // lower (top transparent), with lighting
-    WorldBoolFlag = (unsigned char)pBuff & 1;
-    xx_32 = 32;
-    do {
-      yy_32 = 32;
-      do {
-        while (1) {
-          width = (unsigned char)*src++;
-          if ((width & 0x80u) == 0)
-            break;
-          _LOBYTE(width) = -(char)width;
-          dst += width;
-          yy_32 -= width;
-          if (!yy_32)
-            goto LABEL_69;
-        }
-        yy_32 -= width;
-        if (dst < gpBufEnd) {
-          if (((unsigned char)dst & 1) == WorldBoolFlag) {
-            asm_trans_light_cel_0_2(width, tbl, &dst, &src);
-          } else {
-            asm_trans_light_cel_1_3(width, tbl, &dst, &src);
-          }
-        } else {
-          src += width;
-          dst += width;
-        }
-      } while (yy_32);
-    LABEL_69:
-      WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-      dst -= 800;
-      --xx_32;
-    } while (xx_32);
-    break;
-  case 2: // lower (top transparent), with lighting
-    draw_lower_screen_2_11(dst, src, false, copy_checkerboard_light{true, tbl});
-    return;
-  case 3: // lower (top transparent), with lighting
-    draw_lower_screen_2_11(dst, src, true, copy_checkerboard_light{true, tbl});
-    return;
-  case 4: // lower (top transparent), with lighting
-    draw_lower_screen_default(dst, src, false, copy_checkerboard_light{true, tbl});
-    return;
-  default: // lower (top transparent), with lighting
-    draw_lower_screen_default(dst, src, true, copy_checkerboard_light{true, tbl});
-    return;
-  }
-  return;
-LABEL_11:
-	switch (cel_type_16) {
-	case 8: // lower (top transparent), without lighting
-		i = 16;
-		do {
-			if (dst < gpBufEnd) {
-				j = 8;
-				do {
-					dst[1] = src[1];
-					dst[3] = src[3];
-					src += 4;
-					dst += 4;
-					--j;
-				} while (j);
-			} else {
-				src += 32;
-				dst += 32;
-			}
-			dst -= 800;
-			if (dst < gpBufEnd) {
-				j = 8;
-				do {
-					dst[0] = src[0];
-					dst[2] = src[2];
-					src += 4;
-					dst += 4;
-					--j;
-				} while (j);
-			} else {
-				src += 32;
-				dst += 32;
-			}
-			dst -= 800;
-			--i;
-		} while (i);
-		break;
-	case 9: // lower (top transparent), without lighting
-    WorldBoolFlag = (unsigned char)pBuff & 1;
-    for (int y = 0; y < 32; ++y) {
-      for (int x = 0; x < 32; ) {
-        int width = (unsigned char)*src++;
-        if (width >= 0x80) {
-          _LOBYTE(width) = -(char)width;
-          dst += width;
-        } else {
-          copy_checkerboard{((unsigned int)dst & 1) == WorldBoolFlag}(dst, src, width); 
-          src += width;
-          dst += width;
-        }
-        x += width;
-      } 
-      WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-      dst -= 800;
-    }
-    xx_32 = 32;
-    break;
-	case 10: // lower (top transparent), without lighting
-    draw_lower_screen_2_11(dst, src, false, copy_checkerboard{true});
-    return;
-	case 11: // lower (top transparent), without lighting
-    draw_lower_screen_2_11(dst, src, true, copy_checkerboard{true});
-		break;
-	case 12: // lower (top transparent), without lighting
-		draw_lower_screen_default(dst, src, false, copy_checkerboard{true});
-    return;
-	default: // lower (top transparent), without lighting
-		draw_lower_screen_default(dst, src, true, copy_checkerboard{true});
-    return;
-	}
-}
-
-void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
-{
-	unsigned char *dst;        // edi MAPDST
-	short cel_type_16;         // ax MAPDST
-	unsigned char *src;        // esi MAPDST
-	int and80_i;               // ecx MAPDST
-	signed int tile_42_45;     // eax MAPDST
-	unsigned int world_tbl;    // ecx MAPDST
-	int xx_32;                 // ecx MAPDST
-	int yy_32;                 // edx MAPDST
-	int width;                 // eax MAPDST
-	unsigned int left_shift;   // edx MAPDST
-	signed int i;              // edx MAPDST
-	unsigned int n_draw_shift; // ecx MAPDST
-	unsigned char *tbl;
-
-	dst = pBuff;
-	gpDrawMask = pMask;
-	if ((BYTE)light_table_index) {
-		if ((BYTE)light_table_index == lightmax) {
-			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-			cel_type_16 = (level_cel_block >> 12) & 7;
-			switch (cel_type_16) {
-			case 0: // lower (bottom transparent), black
-				yy_32 = 32;
-				do {
-          left_shift = *gpDrawMask;
-          i = 32;
-          do {
-            if (left_shift & 0x80000000)
-              dst[0] = 0;
-            left_shift *= 2;
-            ++dst;
-            --i;
-          } while (i);
-					dst -= 800;
-					--gpDrawMask;
-					--yy_32;
-				} while (yy_32);
-				break;
-			case 1: // lower (bottom transparent), black
-				xx_32 = 32;
-				do {
-					gdwCurrentMask = *gpDrawMask;
-					yy_32 = 32;
-					do {
-						while (1) {
-							width = (unsigned char)*src++;
-							if ((width & 0x80u) != 0)
-								break;
-							yy_32 -= width;
-              and80_i = width;
-              src += width;
-              left_shift = gdwCurrentMask;
-              do {
-                if (left_shift & 0x80000000)
-                  dst[0] = 0;
-                left_shift *= 2;
-                ++dst;
-                --and80_i;
-              } while (and80_i);
-              gdwCurrentMask = left_shift;
-							if (!yy_32)
-								goto LABEL_252;
-						}
-						_LOBYTE(width) = -(char)width;
-						dst += width;
-						if (width & 0x1F)
-							gdwCurrentMask <<= width & 0x1F;
-						yy_32 -= width;
-					} while (yy_32);
-				LABEL_252:
-					dst -= 800;
-					--gpDrawMask;
-					--xx_32;
-				} while (xx_32);
-				break;
-      case 2:
-        draw_lower_screen_2_11(dst, src, false, copy_black{});
-        return;
-      case 3:
-        draw_lower_screen_2_11(dst, src, true, copy_black{});
-        return;
-      case 4:
-        draw_lower_screen_default(dst, src, false, 
-            make_copy_mixed(copy_black{},
-                            copy_masked_black{gpDrawMask - 16}));
-        gpDrawMask -= 32;
-        return;
-      default: // lower (bottom transparent), without lighting
-        draw_lower_screen_default(dst, src, true,
-            make_copy_mixed(copy_black{},
-                            copy_masked_black{gpDrawMask - 16}));
-        gpDrawMask -= 32;
-        return;
-      }
-      return;
-		}
-    src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-    tbl = &pLightTbl[256 * light_table_index];
-    cel_type_16 = (unsigned char)(level_cel_block >> 12);
-    switch (cel_type_16) {
-    case 0: // lower (bottom transparent), with lighting
-      yy_32 = 32;
-      do {
-        asm_trans_light_mask(32, tbl, &dst, &src, *gpDrawMask);
-        dst -= 800;
-        --gpDrawMask;
-        --yy_32;
-      } while (yy_32);
-      break;
-    case 1: // lower (bottom transparent), with lighting
-      xx_32 = 32;
-      do {
-        gdwCurrentMask = *gpDrawMask;
-        yy_32 = 32;
-        do {
-          while (1) {
-            width = (unsigned char)*src++;
-            if ((width & 0x80u) != 0)
-              break;
-            yy_32 -= width;
-            gdwCurrentMask = asm_trans_light_mask(width, tbl, &dst, &src, gdwCurrentMask);
-            if (!yy_32)
-              goto LABEL_52;
-          }
-          _LOBYTE(width) = -(char)width;
-          dst += width;
-          if (width & 0x1F)
-            gdwCurrentMask <<= width & 0x1F;
-          yy_32 -= width;
-        } while (yy_32);
-      LABEL_52:
-        dst -= 800;
-        --gpDrawMask;
-        --xx_32;
-      } while (xx_32);
-      break;
-    case 2:
-      draw_lower_screen_2_11(dst, src, false, copy_with_light{tbl});
-      return;
-    case 3:
-      draw_lower_screen_2_11(dst, src, true, copy_with_light{tbl});
-      return;
-    case 4:
-      draw_lower_screen_default(dst, src, false, 
-          make_copy_mixed(copy_with_light{tbl},
-                          copy_with_masked_light{tbl, gpDrawMask - 16}));
-      gpDrawMask -= 32;
-      return;
-    default: // lower (bottom transparent), without lighting
-      draw_lower_screen_default(dst, src, true,
-          make_copy_mixed(copy_with_light{tbl},
-                          copy_with_masked_light{tbl, gpDrawMask - 16}));
-      gpDrawMask -= 32;
-      return;
-    }
-    return;
-	} else {
-		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		cel_type_16 = ((level_cel_block >> 12) & 7) + 8;
-	}
-	switch (cel_type_16) {
-	case 8: { // lower (bottom transparent), without lighting
-    copy_with_mask mask{gpDrawMask};
-    for (int i = 0; i < 32; ++i) {
-      copy_pixels(dst, src, 32, false, mask);
-		}
-    gpDrawMask -= 32;
-		break;
-  }
-	case 9: // lower (bottom transparent), without lighting
-		xx_32 = 32;
-		do {
-			gdwCurrentMask = *gpDrawMask;
-			yy_32 = 32;
-			do {
-				while (1) {
-					width = (unsigned char)*src++;
-					if ((width & 0x80u) != 0)
-						break;
-					yy_32 -= width;
-          and80_i = width;
-          left_shift = gdwCurrentMask;
-          do {
-            if (left_shift & 0x80000000)
-              dst[0] = src[0];
-            left_shift *= 2;
-            ++src;
-            ++dst;
-            --and80_i;
-          } while (and80_i);
-          gdwCurrentMask = left_shift;
-					if (!yy_32)
-						goto LABEL_152;
-				}
-				_LOBYTE(width) = -(char)width;
-				dst += width;
-				if (width & 0x1F)
-					gdwCurrentMask <<= width & 0x1F;
-				yy_32 -= width;
-			} while (yy_32);
-		LABEL_152:
-			dst -= 800;
-			--gpDrawMask;
-			--xx_32;
-		} while (xx_32);
-		break;
-  case 10: // lower (bottom transparent), without lighting
-    draw_lower_screen_2_11(dst, src, false, copy{});
-    return;
-  case 11: // lower (bottom transparent), without lighting
-    draw_lower_screen_2_11(dst, src, true, copy{});
-    return;
-  case 12: // lower (bottom transparent), without lighting
-    draw_lower_screen_default(dst, src, false, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
-    gpDrawMask -= 32;
-    return;
-  default: // lower (bottom transparent), without lighting
-    draw_lower_screen_default(dst, src, true, make_copy_mixed(copy{}, copy_with_mask{gpDrawMask - 16}));
-    gpDrawMask -= 32;
-    return;
+    copy_pixels(dst, 32, some_flag, t);
   }
 }
 
 template <typename F>
-void draw_lower_screen_9(BYTE* dst, BYTE* src, F&& f) {
+void draw_lower_screen_9(BYTE* dst, const BYTE* src, F&& f) {
+  skip_texture<F> tex{f, src};
   for (int y = 0; y < 32; ++y) {
-    for (int x = 0; x < 32; ) {
-      int width = (unsigned char)*src++;
-      if (width >= 0x80) {
-        _LOBYTE(width) = -(char)width;
-        dst += width;
-      } else {
-        copy_pixels(dst, src, width, true, f);
-        dst += width;
-        // fn moves to the next line; not appropriate here.
-        dst += 768;
-        // undo alignment adjustment.
-        src -= width & 2;
-      }
-      x += width;
-    } 
-    dst -= 800;
+    copy_pixels(dst, 32, true, tex);
   }
 }
 
 template <typename F>
-static void dispatch_draw_for_cel_type(int level_cel_block, BYTE* dst, BYTE* src, F&& f) {
+static void dispatch_draw_for_cel_type(BYTE* dst, F&& f) {
+	const uint8_t* src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
   int cel_type_16 = level_cel_block >> 12;
 	switch (cel_type_16 & 7) {
-    case 0:
+    case 0: {
+      square_texture<F> t{f, src};
       for (int i = 0; i < 32; ++i) {
-        copy_pixels(dst, src, 32, false, f);
+        copy_pixels(dst, 32, false, t);
       }
       break;
+    }
     case 1:
       draw_lower_screen_9(dst, src, f);
       break;
@@ -747,6 +294,43 @@ static void dispatch_draw_for_cel_type(int level_cel_block, BYTE* dst, BYTE* src
       draw_lower_screen_default(dst, src, true, f);
       break;
 	}
+}
+
+void drawUpperScreen(BYTE *pBuff)
+{
+  drawLowerScreen(pBuff);
+}
+
+void drawTopArchesLowerScreen(BYTE *pBuff)
+{
+	unsigned char *tbl;
+
+  if (light_table_index == lightmax) {
+    dispatch_draw_for_cel_type(pBuff, make_checkered(true, black{}));
+    return;
+  }
+	if (light_table_index) {
+    tbl = &pLightTbl[256 * light_table_index];
+    dispatch_draw_for_cel_type(pBuff, make_checkered(true, lit{tbl}));
+    return;
+	}
+  dispatch_draw_for_cel_type(pBuff, make_checkered(true, identity{}));
+}
+
+void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
+{
+	unsigned char *tbl;
+
+  if (light_table_index == lightmax) {
+    dispatch_draw_for_cel_type(pBuff, make_masked(pMask, black{}));
+    return;
+  }
+	if (light_table_index) {
+    tbl = &pLightTbl[256 * light_table_index];
+    dispatch_draw_for_cel_type(pBuff, make_masked(pMask, lit{tbl}));
+    return;
+	}
+  dispatch_draw_for_cel_type(pBuff, make_masked(pMask, identity{}));
 }
 
 void drawLowerScreen(BYTE *pBuff)
@@ -772,17 +356,16 @@ void drawLowerScreen(BYTE *pBuff)
 			}
 		}
 	}
-	src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
   if (light_table_index == lightmax) {
-    dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_black{});
+    dispatch_draw_for_cel_type(pBuff, black{});
     return;
   }
 	if (light_table_index) {
     tbl = &pLightTbl[256 * light_table_index];
-    dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_with_light{tbl});
+    dispatch_draw_for_cel_type(pBuff, lit{tbl});
     return;
 	}
-  dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy{});
+  dispatch_draw_for_cel_type(pBuff, identity{});
 }
 
 void world_draw_black_tile(BYTE *pBuff)
