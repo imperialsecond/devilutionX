@@ -73,7 +73,6 @@ void FreeGameMem()
 	MemFreeDbg(pMegaTiles);
 	MemFreeDbg(pLevelPieces);
 	MemFreeDbg(pSpecialCels);
-	MemFreeDbg(pSpeedCels);
 
 	FreeMissiles();
 	FreeMonsters();
@@ -1573,8 +1572,6 @@ void LoadLvlGFX()
 
 void LoadAllGFX()
 {
-	/// ASSERT: assert(! pSpeedCels);
-	pSpeedCels = DiabloAllocPtr(0x100000);
 	IncProgress();
 	IncProgress();
 	InitObjectGFX();
@@ -1759,8 +1756,6 @@ void LoadGameLevel(BOOL firstflag, int lvldir)
 		else
 			ResyncMPQuests();
 	} else {
-		/// ASSERT: assert(! pSpeedCels);
-		pSpeedCels = DiabloAllocPtr(0x100000);
 		LoadSetMap();
 		IncProgress();
 		GetLevelMTypes();
