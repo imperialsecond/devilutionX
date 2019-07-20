@@ -8,7 +8,6 @@ DEVILUTION_BEGIN_NAMESPACE
 BYTE *gpBufStart;
 int WorldBoolFlag = 0;
 unsigned int gdwCurrentMask = 0;
-unsigned char *gpCelFrame = NULL;
 unsigned int *gpDrawMask = NULL;
 
 unsigned int RightMask[32] = {
@@ -256,20 +255,13 @@ void drawTopArchesLowerScreen(BYTE *pBuff)
 	signed int i;              // edx MAPDST
 	signed int j;              // ecx MAPDST
 
-	gpCelFrame = (unsigned char *)SpeedFrameTbl;
 	dst = pBuff;
 	if (!(BYTE)light_table_index) {
-		if (level_cel_block & 0x8000)
-			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 		cel_type_16 = ((level_cel_block >> 12) & 7) + 8;
 		goto LABEL_11;
 	}
 	if ((BYTE)light_table_index == lightmax) {
-		if (level_cel_block & 0x8000)
-			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 		cel_type_16 = (level_cel_block >> 12) & 7;
 		switch (cel_type_16) {
@@ -340,82 +332,78 @@ void drawTopArchesLowerScreen(BYTE *pBuff)
 		}
 		return;
 	}
-	if (!(level_cel_block & 0x8000)) {
-		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-		tbl = &pLightTbl[256 * light_table_index];
-		cel_type_16 = (unsigned char)(level_cel_block >> 12);
-		switch (cel_type_16) {
-		case 0: // lower (top transparent), with lighting
-			i = 16;
-			do {
-				if (dst < gpBufEnd) {
-					asm_trans_light_square_1_3(8, tbl, &dst, &src);
-				} else {
-					src += 32;
-					dst += 32;
-				}
-				dst -= 800;
-				if (dst < gpBufEnd) {
-					asm_trans_light_square_0_2(8, tbl, &dst, &src);
-				} else {
-					src += 32;
-					dst += 32;
-				}
-				dst -= 800;
-				--i;
-			} while (i);
-			break;
-		case 1: // lower (top transparent), with lighting
-			WorldBoolFlag = (unsigned char)pBuff & 1;
-			xx_32 = 32;
-			do {
-				yy_32 = 32;
-				do {
-					while (1) {
-						width = (unsigned char)*src++;
-						if ((width & 0x80u) == 0)
-							break;
-						_LOBYTE(width) = -(char)width;
-						dst += width;
-						yy_32 -= width;
-						if (!yy_32)
-							goto LABEL_69;
-					}
-					yy_32 -= width;
-					if (dst < gpBufEnd) {
-						if (((unsigned char)dst & 1) == WorldBoolFlag) {
-							asm_trans_light_cel_0_2(width, tbl, &dst, &src);
-						} else {
-							asm_trans_light_cel_1_3(width, tbl, &dst, &src);
-						}
-					} else {
-						src += width;
-						dst += width;
-					}
-				} while (yy_32);
-			LABEL_69:
-				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-				dst -= 800;
-				--xx_32;
-			} while (xx_32);
-			break;
-    case 2: // lower (top transparent), with lighting
-      draw_lower_screen_2_11(dst, src, false, copy_checkerboard_light{true, tbl});
-      return;
-    case 3: // lower (top transparent), with lighting
-      draw_lower_screen_2_11(dst, src, true, copy_checkerboard_light{true, tbl});
-      return;
-    case 4: // lower (top transparent), with lighting
-      draw_lower_screen_default(dst, src, false, copy_checkerboard_light{true, tbl});
-      return;
-    default: // lower (top transparent), with lighting
-      draw_lower_screen_default(dst, src, true, copy_checkerboard_light{true, tbl});
-      return;
-    }
+  src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
+  tbl = &pLightTbl[256 * light_table_index];
+  cel_type_16 = (unsigned char)(level_cel_block >> 12);
+  switch (cel_type_16) {
+  case 0: // lower (top transparent), with lighting
+    i = 16;
+    do {
+      if (dst < gpBufEnd) {
+        asm_trans_light_square_1_3(8, tbl, &dst, &src);
+      } else {
+        src += 32;
+        dst += 32;
+      }
+      dst -= 800;
+      if (dst < gpBufEnd) {
+        asm_trans_light_square_0_2(8, tbl, &dst, &src);
+      } else {
+        src += 32;
+        dst += 32;
+      }
+      dst -= 800;
+      --i;
+    } while (i);
+    break;
+  case 1: // lower (top transparent), with lighting
+    WorldBoolFlag = (unsigned char)pBuff & 1;
+    xx_32 = 32;
+    do {
+      yy_32 = 32;
+      do {
+        while (1) {
+          width = (unsigned char)*src++;
+          if ((width & 0x80u) == 0)
+            break;
+          _LOBYTE(width) = -(char)width;
+          dst += width;
+          yy_32 -= width;
+          if (!yy_32)
+            goto LABEL_69;
+        }
+        yy_32 -= width;
+        if (dst < gpBufEnd) {
+          if (((unsigned char)dst & 1) == WorldBoolFlag) {
+            asm_trans_light_cel_0_2(width, tbl, &dst, &src);
+          } else {
+            asm_trans_light_cel_1_3(width, tbl, &dst, &src);
+          }
+        } else {
+          src += width;
+          dst += width;
+        }
+      } while (yy_32);
+    LABEL_69:
+      WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
+      dst -= 800;
+      --xx_32;
+    } while (xx_32);
+    break;
+  case 2: // lower (top transparent), with lighting
+    draw_lower_screen_2_11(dst, src, false, copy_checkerboard_light{true, tbl});
     return;
-	}
-	src = (unsigned char *)pSpeedCels + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
-	cel_type_16 = (unsigned char)(level_cel_block >> 12);
+  case 3: // lower (top transparent), with lighting
+    draw_lower_screen_2_11(dst, src, true, copy_checkerboard_light{true, tbl});
+    return;
+  case 4: // lower (top transparent), with lighting
+    draw_lower_screen_default(dst, src, false, copy_checkerboard_light{true, tbl});
+    return;
+  default: // lower (top transparent), with lighting
+    draw_lower_screen_default(dst, src, true, copy_checkerboard_light{true, tbl});
+    return;
+  }
+  return;
 LABEL_11:
 	switch (cel_type_16) {
 	case 8: // lower (top transparent), without lighting
@@ -503,14 +491,10 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
 	unsigned int n_draw_shift; // ecx MAPDST
 	unsigned char *tbl;
 
-	gpCelFrame = (unsigned char *)SpeedFrameTbl;
 	dst = pBuff;
 	gpDrawMask = pMask;
 	if ((BYTE)light_table_index) {
 		if ((BYTE)light_table_index == lightmax) {
-			if (level_cel_block & 0x8000)
-				level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-				    + (unsigned short)(level_cel_block & 0xF000);
 			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 			cel_type_16 = (level_cel_block >> 12) & 7;
 			switch (cel_type_16) {
@@ -589,75 +573,67 @@ void drawBottomArchesLowerScreen(BYTE *pBuff, unsigned int *pMask)
       }
       return;
 		}
-		if (!(level_cel_block & 0x8000)) {
-			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-			tbl = &pLightTbl[256 * light_table_index];
-			cel_type_16 = (unsigned char)(level_cel_block >> 12);
-			switch (cel_type_16) {
-			case 0: // lower (bottom transparent), with lighting
-				yy_32 = 32;
-				do {
-          asm_trans_light_mask(32, tbl, &dst, &src, *gpDrawMask);
-					dst -= 800;
-					--gpDrawMask;
-					--yy_32;
-				} while (yy_32);
-				break;
-			case 1: // lower (bottom transparent), with lighting
-				xx_32 = 32;
-				do {
-					gdwCurrentMask = *gpDrawMask;
-					yy_32 = 32;
-					do {
-						while (1) {
-							width = (unsigned char)*src++;
-							if ((width & 0x80u) != 0)
-								break;
-							yy_32 -= width;
-              gdwCurrentMask = asm_trans_light_mask(width, tbl, &dst, &src, gdwCurrentMask);
-							if (!yy_32)
-								goto LABEL_52;
-						}
-						_LOBYTE(width) = -(char)width;
-						dst += width;
-						if (width & 0x1F)
-							gdwCurrentMask <<= width & 0x1F;
-						yy_32 -= width;
-					} while (yy_32);
-				LABEL_52:
-					dst -= 800;
-					--gpDrawMask;
-					--xx_32;
-				} while (xx_32);
-				break;
-      case 2:
-        draw_lower_screen_2_11(dst, src, false, copy_with_light{tbl});
-        return;
-      case 3:
-        draw_lower_screen_2_11(dst, src, true, copy_with_light{tbl});
-        return;
-      case 4:
-        draw_lower_screen_default(dst, src, false, 
-            make_copy_mixed(copy_with_light{tbl},
-                            copy_with_masked_light{tbl, gpDrawMask - 16}));
-        gpDrawMask -= 32;
-        return;
-      default: // lower (bottom transparent), without lighting
-        draw_lower_screen_default(dst, src, true,
-            make_copy_mixed(copy_with_light{tbl},
-                            copy_with_masked_light{tbl, gpDrawMask - 16}));
-        gpDrawMask -= 32;
-        return;
-			}
-			return;
-		}
-		src = (unsigned char *)pSpeedCels
-		    + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
-		cel_type_16 = (unsigned char)(level_cel_block >> 12);
+    src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
+    tbl = &pLightTbl[256 * light_table_index];
+    cel_type_16 = (unsigned char)(level_cel_block >> 12);
+    switch (cel_type_16) {
+    case 0: // lower (bottom transparent), with lighting
+      yy_32 = 32;
+      do {
+        asm_trans_light_mask(32, tbl, &dst, &src, *gpDrawMask);
+        dst -= 800;
+        --gpDrawMask;
+        --yy_32;
+      } while (yy_32);
+      break;
+    case 1: // lower (bottom transparent), with lighting
+      xx_32 = 32;
+      do {
+        gdwCurrentMask = *gpDrawMask;
+        yy_32 = 32;
+        do {
+          while (1) {
+            width = (unsigned char)*src++;
+            if ((width & 0x80u) != 0)
+              break;
+            yy_32 -= width;
+            gdwCurrentMask = asm_trans_light_mask(width, tbl, &dst, &src, gdwCurrentMask);
+            if (!yy_32)
+              goto LABEL_52;
+          }
+          _LOBYTE(width) = -(char)width;
+          dst += width;
+          if (width & 0x1F)
+            gdwCurrentMask <<= width & 0x1F;
+          yy_32 -= width;
+        } while (yy_32);
+      LABEL_52:
+        dst -= 800;
+        --gpDrawMask;
+        --xx_32;
+      } while (xx_32);
+      break;
+    case 2:
+      draw_lower_screen_2_11(dst, src, false, copy_with_light{tbl});
+      return;
+    case 3:
+      draw_lower_screen_2_11(dst, src, true, copy_with_light{tbl});
+      return;
+    case 4:
+      draw_lower_screen_default(dst, src, false, 
+          make_copy_mixed(copy_with_light{tbl},
+                          copy_with_masked_light{tbl, gpDrawMask - 16}));
+      gpDrawMask -= 32;
+      return;
+    default: // lower (bottom transparent), without lighting
+      draw_lower_screen_default(dst, src, true,
+          make_copy_mixed(copy_with_light{tbl},
+                          copy_with_masked_light{tbl, gpDrawMask - 16}));
+      gpDrawMask -= 32;
+      return;
+    }
+    return;
 	} else {
-		if (level_cel_block & 0x8000)
-			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-			    + (unsigned short)(level_cel_block & 0xF000);
 		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
 		cel_type_16 = ((level_cel_block >> 12) & 7) + 8;
 	}
@@ -796,29 +772,15 @@ void drawLowerScreen(BYTE *pBuff)
 			}
 		}
 	}
-	gpCelFrame = (unsigned char *)SpeedFrameTbl;
-	if ((BYTE)light_table_index) {
-		if ((BYTE)light_table_index == lightmax) {
-			if (level_cel_block & 0x8000)
-				level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-				    + (unsigned short)(level_cel_block & 0xF000);
-			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-      dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_black{});
-			return;
-		}
-		if (!(level_cel_block & 0x8000)) {
-			src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
-			tbl = &pLightTbl[256 * light_table_index];
-      dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_with_light{tbl});
-			return;
-		}
-		src = (unsigned char *)pSpeedCels
-		    + *(DWORD *)&gpCelFrame[4 * (light_table_index + 16 * (level_cel_block & 0xFFF))];
-	} else {
-		if (level_cel_block & 0x8000)
-			level_cel_block = *(DWORD *)&gpCelFrame[64 * (level_cel_block & 0xFFF)]
-			    + (unsigned short)(level_cel_block & 0xF000);
-		src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
+	src = (unsigned char *)pDungeonCels + *((DWORD *)pDungeonCels + (level_cel_block & 0xFFF));
+  if (light_table_index == lightmax) {
+    dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_black{});
+    return;
+  }
+	if (light_table_index) {
+    tbl = &pLightTbl[256 * light_table_index];
+    dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy_with_light{tbl});
+    return;
 	}
   dispatch_draw_for_cel_type(level_cel_block, pBuff, src, copy{});
 }
