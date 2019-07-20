@@ -43,37 +43,27 @@ unsigned int LeftMask[32] = {
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
+// Textures:
 // 0x0 (square).
 struct square_texture {
   const uint8_t* src;
-  bool operator()(uint8_t* dst) { 
-    *dst = *src++;
-    return true;
-  }
+  bool operator()(uint8_t* dst) { *dst = *src++; return true; }
   void next_row() {}
 };
 
-// 0x1 (skip)
+// 0x1 (partially transparent)
 struct skip_texture {
   const uint8_t* src;
-  int skip = 0;
-  int copy = 0;
+  int n = 0;
   bool operator()(uint8_t* dst) {
-    if (copy == 0 && skip == 0) {
-      int width = (signed char)*src++;
-      if (width < 0) {
-        skip = -width;
-      } else {
-        copy = width;
-      }
+    if (!n) n = (signed char)*src++;
+    if (n < 0) {
+      ++n;
+      return false;
     }
-    if (copy > 0) {
-      --copy;
-      *dst = *src++;
-      return true;
-    }
-    --skip;
-    return false;
+    --n;
+    *dst = *src++;
+    return true;
   }
   void next_row() {}
 };
@@ -83,10 +73,7 @@ struct triangular_texture {
   const uint8_t* src;
   bool aligned;
 
-  bool operator()(uint8_t* dst) {
-    *dst = *src++;
-    return true;
-  }
+  bool operator()(uint8_t* dst) { *dst = *src++; return true; }
   void next_row() {
     aligned = !aligned;
     if (aligned) src += 2;
@@ -103,10 +90,7 @@ struct trapezoidal_texture {
   bool aligned;
   int num_rows = 0;
 
-  bool operator()(uint8_t* dst) {
-    *dst = *src++;
-    return true;
-  }
+  bool operator()(uint8_t* dst) { *dst = *src++; return true; }
   void next_row() {
     if (++num_rows >= 16) return;
     aligned = !aligned;
@@ -114,6 +98,7 @@ struct trapezoidal_texture {
   }
 };
 
+// Masks:
 struct masked {
   const uint32_t* mask;
   uint32_t current_mask = 0;
@@ -124,9 +109,7 @@ struct masked {
     return enable;
   }
 
-  void next_row() {
-    current_mask = *mask--;
-  }
+  void next_row() { current_mask = *mask--; }
 };
 
 struct solid {
@@ -135,28 +118,22 @@ struct solid {
 };
 
 struct checkered {
-  bool active;
-
-  bool operator()() {
-    active = !active;
-    return !active;
-  }
-
+  bool active = false;
+  bool operator()() { return active = !active; }
   void next_row() { active = !active; }
 };
 
+// Color transforms:
 uint8_t identity(uint8_t src) { return src; }
 uint8_t black(uint8_t) { return 0; }
 
 struct lit {
   const uint8_t* tbl;
-  uint8_t operator()(uint8_t src) {
-    return tbl[src];
-  }
+  uint8_t operator()(uint8_t src) { return tbl[src]; }
 };
 
 template <typename Texture, typename Mask, typename Transform>
-static void copy_pixels(BYTE*& dst, int width, bool left_aligned,
+static void drawRow(BYTE*& dst, int width, bool left_aligned,
     Texture&& texture, Mask&& mask, Transform&& transform) {
   texture.next_row();
   mask.next_row();
@@ -172,7 +149,6 @@ static void copy_pixels(BYTE*& dst, int width, bool left_aligned,
     }
   } else {
     for (int i = 0; i < width; ++i) {
-      mask();
       texture(&col);
     }
   }
@@ -188,14 +164,14 @@ static void drawTile(BYTE* dst, Mask&& mask, Transform&& transform) {
     case 0: {
       square_texture t{src};
       for (int i = 0; i < 32; ++i) {
-        copy_pixels(dst, 32, true, t, mask, transform);
+        drawRow(dst, 32, true, t, mask, transform);
       }
       break;
     }
     case 1: {
       skip_texture tex{src};
       for (int y = 0; y < 32; ++y) {
-        copy_pixels(dst, 32, true, tex, mask, transform);
+        drawRow(dst, 32, true, tex, mask, transform);
       }
       break;
     }
@@ -203,20 +179,20 @@ static void drawTile(BYTE* dst, Mask&& mask, Transform&& transform) {
     case 3: {
       triangular_texture t{src, left_aligned};
       for (int i = 0; i < 16; ++i) {
-        copy_pixels(dst, (i + 1) * 2, left_aligned, t, mask, transform);
+        drawRow(dst, (i + 1) * 2, left_aligned, t, mask, transform);
       }
       for (int i = 30; i > 0; i -= 2) {
-        copy_pixels(dst, i, left_aligned, t, mask, transform);
+        drawRow(dst, i, left_aligned, t, mask, transform);
       }
       break;
     }
     default: {
       trapezoidal_texture t{src, left_aligned};
       for (int i = 0; i < 16; ++i) {
-        copy_pixels(dst, 2 * (i+1), left_aligned, t, mask, transform);
+        drawRow(dst, 2 * (i+1), left_aligned, t, mask, transform);
       }
       for (int i = 0; i < 16; ++i) {
-        copy_pixels(dst, 32, left_aligned, t, mask, transform);
+        drawRow(dst, 32, left_aligned, t, mask, transform);
       }
       break;
     }
@@ -244,16 +220,14 @@ void drawLowerScreen(BYTE *pBuff)
 {
 	if (cel_transparency_active) {
 		if (!arch_draw_type) {
-      applyLighting(pBuff, checkered{true});
+      applyLighting(pBuff, checkered{});
 			return;
-		}
-		if (arch_draw_type == 1) {
+		} else if (arch_draw_type == 1) {
 			if (block_lvid[level_piece_id] == 1 || block_lvid[level_piece_id] == 3) {
         applyLighting(pBuff, masked{&LeftMask[31]});
 				return;
 			}
-		}
-		if (arch_draw_type == 2) {
+		} else if (arch_draw_type == 2) {
 			if (block_lvid[level_piece_id] == 2 || block_lvid[level_piece_id] == 3) {
         applyLighting(pBuff, masked{&RightMask[31]});
 				return;
