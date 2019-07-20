@@ -773,11 +773,7 @@ void MakeLightTable()
 	tbl = pLightTbl;
 	shade = 0;
 
-	if (light4flag) {
-		lights = 3;
-	} else {
-		lights = 15;
-	}
+	lights = 15;
 
 	for (i = 0; i < lights; i++) {
 		*tbl++ = 0;
@@ -826,11 +822,7 @@ void MakeLightTable()
 				}
 			}
 		}
-		if (light4flag) {
-			shade += 5;
-		} else {
-			shade++;
-		}
+		shade++;
 	}
 
 	for (i = 0; i < 256; i++) {
@@ -981,11 +973,7 @@ void ToggleLighting()
 
 void InitLightMax()
 {
-	if (light4flag) {
-		lightmax = 3;
-	} else {
-		lightmax = 15;
-	}
+	lightmax = 15;
 }
 
 void InitLighting()
@@ -1260,7 +1248,7 @@ void lighting_color_cycling()
 	BYTE col;
 	BYTE *tbl;
 
-	l = light4flag ? 4 : 16;
+	l = 16;
 
 	if (leveltype != DTYPE_HELL) {
 		return;

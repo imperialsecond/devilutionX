@@ -296,17 +296,10 @@ void MakeSpeedCels()
 	total_size = 0;
 	total_frames = 0;
 
-	if (light4flag) {
-		while (total_size < 0x100000) {
-			total_size += level_frame_sizes[total_frames] << 1;
-			total_frames++;
-		}
-	} else {
-		while (total_size < 0x100000) {
-			total_size += (level_frame_sizes[total_frames] << 4) - (level_frame_sizes[total_frames] << 1);
-			total_frames++;
-		}
-	}
+  while (total_size < 0x100000) {
+    total_size += (level_frame_sizes[total_frames] << 4) - (level_frame_sizes[total_frames] << 1);
+    total_frames++;
+  }
 
 	total_frames--;
 	if (total_frames > 128)
@@ -314,10 +307,7 @@ void MakeSpeedCels()
 
 	frameidx = 0; /* move into loop ? */
 
-	if (light4flag)
-		blk_cnt = 3;
-	else
-		blk_cnt = 15;
+	blk_cnt = 15;
 
 	for (i = 0; i < total_frames; i++) {
 		z = tile_defs[i];

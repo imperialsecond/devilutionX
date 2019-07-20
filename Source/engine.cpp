@@ -727,7 +727,7 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, in
 	pRLEBytes += nDataStart;
 	dst = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
 
-	idx = light4flag ? 1024 : 4096;
+	idx = 4096;
 	if (light == 2)
 		idx += 256;
 	if (light >= 4)
@@ -1487,7 +1487,7 @@ void Cel2DrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, i
 	pRLEBytes += nDataStart;
 	dst = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
 
-	idx = light4flag ? 1024 : 4096;
+	idx = 4096;
 	if (light == 2)
 		idx += 256;
 	if (light >= 4)
@@ -2900,7 +2900,7 @@ void Cl2DecodeFrm3(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, int Cel
 	pRLEBytes += nDataStart;
 	pDecodeTo = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
 
-	idx = light4flag ? 1024 : 4096;
+	idx = 4096;
 	if (light == 2)
 		idx += 256;
 	if (light >= 4)
@@ -3558,7 +3558,7 @@ void Cl2DecodeFrm5(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, int Cel
 	pRLEBytes += nDataStart;
 	pDecodeTo = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
 
-	idx = light4flag ? 1024 : 4096;
+	idx = 4096;
 	if (light == 2)
 		idx += 256;
 	if (light >= 4)

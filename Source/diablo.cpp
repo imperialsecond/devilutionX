@@ -25,7 +25,6 @@ char cineflag;   // weak
 int drawpanflag; // weak
 int visiondebug; // weak
 int scrollflag;  /* unused */
-BOOL light4flag;
 int leveldebug;      // weak
 int monstdebug;      // weak
 int trigdebug;       /* unused */

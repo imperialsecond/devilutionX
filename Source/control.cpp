@@ -2081,9 +2081,7 @@ int DrawDurIcon4Item(ItemStruct *pItem, int x, int c)
 
 void RedBack()
 {
-	int idx;
-
-	idx = light4flag ? 1536 : 4608;
+	int idx = 4608;
 
 	/// ASSERT: assert(gpBuffer);
 
