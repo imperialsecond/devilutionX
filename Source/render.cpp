@@ -8,10 +8,8 @@ DEVILUTION_BEGIN_NAMESPACE
 BYTE *gpBufStart;
 int WorldBoolFlag = 0;
 unsigned int gdwCurrentMask = 0;
-// char world_4B3264 = 0;
 unsigned char *gpCelFrame = NULL;
 unsigned int *gpDrawMask = NULL;
-// char world_4B326D[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 unsigned int RightMask[32] = {
 	0xEAAAAAAA, 0xF5555555,
@@ -69,29 +67,6 @@ unsigned int WallMask[32] = {
 	0xAAAAAAAA, 0x55555555,
 	0xAAAAAAAA, 0x55555555
 };
-
-int WorldTbl3x16[48] = {
-	0, 0, 0,
-	4, 4, 4,
-	8, 8, 8,
-	12, 12, 12,
-	16, 16, 16,
-	20, 20, 20,
-	24, 24, 24,
-	28, 28, 28,
-	32, 32, 32,
-	36, 36, 36,
-	40, 40, 40,
-	44, 44, 44,
-	48, 48, 48,
-	52, 52, 52,
-	56, 56, 56,
-	60, 60, 60
-};
-
-// slope/angle tables, left and right
-int WorldTbl17_1[17] = { 0, 4, 8, 16, 24, 36, 48, 64, 80, 100, 120, 144, 168, 196, 224, 256, 288 };
-int WorldTbl17_2[17] = { 0, 32, 60, 88, 112, 136, 156, 176, 192, 208, 220, 232, 240, 248, 252, 256, 288 };
 
 void maskcpy(BYTE* dst, BYTE* src, uint32_t mask, int width) {
   for (int i = 0; i < width; ++i) {
@@ -332,82 +307,23 @@ void drawTopArchesLowerScreen(BYTE *pBuff)
 			break;
 		case 1: // lower (top transparent), black
 			WorldBoolFlag = (unsigned char)pBuff & 1;
+      for (int y = 0; y < 32; ++y) {
+        for (int x = 0; x < 32; ) {
+          int width = (unsigned char)*src++;
+          if (width >= 0x80) {
+            _LOBYTE(width) = -(char)width;
+            dst += width;
+          } else {
+            copy_checkerboard_black{((unsigned int)dst & 1) == WorldBoolFlag}(dst, src, width); 
+            src += width;
+            dst += width;
+          }
+          x += width;
+        } 
+				WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
+        dst -= 800;
+      }
 			xx_32 = 32;
-		LABEL_412:
-			yy_32 = 32;
-			while (1) {
-				while (1) {
-					width = (unsigned char)*src++;
-					if ((width & 0x80u) == 0)
-						break;
-					_LOBYTE(width) = -(char)width;
-					dst += width;
-					yy_32 -= width;
-					if (!yy_32) {
-					LABEL_433:
-						WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-						dst -= 800;
-						if (!--xx_32)
-							return;
-						goto LABEL_412;
-					}
-				}
-				yy_32 -= width;
-				if (dst < gpBufEnd) {
-					src += width;
-					if (((unsigned char)dst & 1) == WorldBoolFlag) {
-						chk_sh_and = width >> 1;
-						if (!(width & 1))
-							goto LABEL_420;
-						++dst;
-						if (chk_sh_and) {
-						LABEL_427:
-							n_draw_shift = chk_sh_and >> 1;
-							if (chk_sh_and & 1) {
-								dst[0] = 0;
-								dst += 2;
-							}
-							if (n_draw_shift) {
-								do {
-									dst[0] = 0;
-									dst[2] = 0;
-									dst += 4;
-									--n_draw_shift;
-								} while (n_draw_shift);
-							}
-							goto LABEL_430;
-						}
-					} else {
-						chk_sh_and = width >> 1;
-						if (!(width & 1))
-							goto LABEL_427;
-						*dst++ = 0;
-						if (chk_sh_and) {
-						LABEL_420:
-							n_draw_shift = chk_sh_and >> 1;
-							if (chk_sh_and & 1) {
-								dst[1] = 0;
-								dst += 2;
-							}
-							if (n_draw_shift) {
-								do {
-									dst[1] = 0;
-									dst[3] = 0;
-									dst += 4;
-									--n_draw_shift;
-								} while (n_draw_shift);
-							}
-							goto LABEL_430;
-						}
-					}
-				} else {
-					src += width;
-					dst += width;
-				}
-			LABEL_430:
-				if (!yy_32)
-					goto LABEL_433;
-			}
 			break;
 		case 2: // lower (top transparent), black
       draw_lower_screen_2_11(dst, src, false, copy_checkerboard_black{true});
@@ -537,85 +453,25 @@ LABEL_11:
 		} while (i);
 		break;
 	case 9: // lower (top transparent), without lighting
-		WorldBoolFlag = (unsigned char)pBuff & 1;
-		xx_32 = 32;
-		while (1) {
-			yy_32 = 32;
-			do {
-				while (1) {
-					width = (unsigned char)*src++;
-					if ((width & 0x80u) != 0)
-						break;
-					yy_32 -= width;
-					if (dst < gpBufEnd) {
-						if (((unsigned char)dst & 1) == WorldBoolFlag) {
-							chk_sh_and = width >> 1;
-							if (!(width & 1))
-								goto LABEL_280;
-							++src;
-							++dst;
-							if (chk_sh_and) {
-							LABEL_287:
-								n_draw_shift = chk_sh_and >> 1;
-								if (chk_sh_and & 1) {
-									dst[0] = src[0];
-									src += 2;
-									dst += 2;
-								}
-								if (n_draw_shift) {
-									do {
-										dst[0] = src[0];
-										dst[2] = src[2];
-										src += 4;
-										dst += 4;
-										--n_draw_shift;
-									} while (n_draw_shift);
-								}
-								goto LABEL_290;
-							}
-						} else {
-							chk_sh_and = width >> 1;
-							if (!(width & 1))
-								goto LABEL_287;
-							*dst++ = *src++;
-							if (chk_sh_and) {
-							LABEL_280:
-								n_draw_shift = chk_sh_and >> 1;
-								if (chk_sh_and & 1) {
-									dst[1] = src[1];
-									src += 2;
-									dst += 2;
-								}
-								if (n_draw_shift) {
-									do {
-										dst[1] = src[1];
-										dst[3] = src[3];
-										src += 4;
-										dst += 4;
-										--n_draw_shift;
-									} while (n_draw_shift);
-								}
-								goto LABEL_290;
-							}
-						}
-					} else {
-						src += width;
-						dst += width;
-					}
-				LABEL_290:
-					if (!yy_32)
-						goto LABEL_293;
-				}
-				_LOBYTE(width) = -(char)width;
-				dst += width;
-				yy_32 -= width;
-			} while (yy_32);
-		LABEL_293:
-			WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
-			dst -= 800;
-			if (!--xx_32)
-				return;
-		}
+    WorldBoolFlag = (unsigned char)pBuff & 1;
+    for (int y = 0; y < 32; ++y) {
+      for (int x = 0; x < 32; ) {
+        int width = (unsigned char)*src++;
+        if (width >= 0x80) {
+          _LOBYTE(width) = -(char)width;
+          dst += width;
+        } else {
+          copy_checkerboard{((unsigned int)dst & 1) == WorldBoolFlag}(dst, src, width); 
+          src += width;
+          dst += width;
+        }
+        x += width;
+      } 
+      WorldBoolFlag = ((BYTE)WorldBoolFlag + 1) & 1;
+      dst -= 800;
+    }
+    xx_32 = 32;
+    break;
 	case 10: // lower (top transparent), without lighting
     draw_lower_screen_2_11(dst, src, false, copy_checkerboard{true});
     return;
@@ -978,6 +834,5 @@ void world_draw_black_tile(BYTE *pBuff)
     dst -= 768;
   }
 }
-#endif
 
 DEVILUTION_END_NAMESPACE
