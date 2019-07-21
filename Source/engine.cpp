@@ -807,117 +807,25 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, in
 #endif
 }
 
-void Cel2DecDatOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
+void Cel2DecDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
 {
-	int w;
-
-	/// ASSERT: assert(pDecodeTo != NULL);
-	if (!pDecodeTo)
-		return;
-	/// ASSERT: assert(pRLEBytes != NULL);
-	if (!pRLEBytes)
-		return;
-	/// ASSERT: assert(gpBuffer);
-	if (!gpBuffer)
-		return;
-
-#ifdef USE_ASM
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label7
-		sub		edx, eax
-		cmp		edi, gpBufEnd
-		jb		label3
-		add		esi, eax
-		add		edi, eax
-		jmp		label6
-	label3:
-		mov		ecx, eax
-		shr		ecx, 1
-		jnb		label4
-		movsb
-		jecxz	label6
-	label4:
-		shr		ecx, 1
-		jnb		label5
-		movsw
-		jecxz	label6
-	label5:
-		rep movsd
-	label6:
-		or		edx, edx
-		jz		label8
-		jmp		label2
-	label7:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label8:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
-	int i;
-	BYTE width;
-	BYTE *src, *dst;
+	BYTE *src;
 
 	src = pRLEBytes;
-	dst = pDecodeTo;
-	w = nWidth;
-
-	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH + w) {
-		for (i = w; i;) {
-			width = *src++;
-			if (!(width & 0x80)) {
-				i -= width;
+	for (; src < pRLEBytes + nDataSize; dst -= BUFFER_WIDTH) {
+		for (int x = 0; x < texWidth;) {
+			int width = (signed char)*src++;
+			if (width > 0) {
 				if (dst < gpBufEnd) {
-					if (width & 1) {
-						dst[0] = src[0];
-						src++;
-						dst++;
-					}
-					width >>= 1;
-					if (width & 1) {
-						dst[0] = src[0];
-						dst[1] = src[1];
-						src += 2;
-						dst += 2;
-					}
-					width >>= 1;
-					for (; width; width--) {
-						dst[0] = src[0];
-						dst[1] = src[1];
-						dst[2] = src[2];
-						dst[3] = src[3];
-						src += 4;
-						dst += 4;
-					}
-				} else {
-					src += width;
-					dst += width;
+          memcpy(dst + x, src, width);
 				}
+        src += width;
 			} else {
-				width = -(char)width;
-				dst += width;
-				i -= width;
+				width = -width;
 			}
+			x += width;
 		}
 	}
-#endif
 }
 
 /**

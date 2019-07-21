@@ -31,8 +31,6 @@ void scrollrt_draw_clipped_dungeon_2(BYTE *pBuff, int sx, int sy, int skipChunks
 void scrollrt_draw_clipped_e_flag_2(BYTE *pBuff, int x, int y, int skipChunks, int CelSkip, int sx, int sy);
 void scrollrt_draw_upper(int x, int y, int sx, int sy, int chunks, int capChunks, int eflag);
 void scrollrt_draw_dungeon(BYTE *pBuff, int sx, int sy, int capChunks, int CelCap, int dx, int dy, int eflag);
-void DrawMonster(int x, int y, int mx, int my, int m, int CelSkip, int CelCap);
-void DrawObject(int x, int y, int ox, int oy, BOOL pre, int CelSkip, int capChunks);
 void scrollrt_draw_e_flag(BYTE *pBuff, int x, int y, int capChunks, int CelCap, int sx, int sy);
 void DrawZoom(int x, int y);
 void ClearScreenBuffer();
