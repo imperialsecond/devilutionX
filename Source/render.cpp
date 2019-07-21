@@ -310,8 +310,9 @@ void Cel2DecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidt
 {
 	BYTE *tbl = &pLightTbl[light_table_index * 256];
   skip_texture tex{pRLEBytes};
+  checkered mask{};
   while (tex.src < pRLEBytes + nDataSize) {
-    drawRow(dst, texWidth, true, tex, checkered{true}, lit{tbl});
+    drawRow(dst, texWidth, true, tex, mask, lit{tbl});
   }
 }
 
