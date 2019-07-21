@@ -68,6 +68,46 @@ struct skip_texture {
   void next_row() {}
 };
 
+// Texture with transparency and RLE.
+struct rle_texture {
+  const uint8_t* src;
+  char fill;
+  int fillbytes = 0;
+  int skipbytes = 0;
+  int copybytes = 0;
+
+  bool operator()(uint8_t* dst) {
+    if (fillbytes == 0 && skipbytes == 0 && copybytes == 0) {
+      int width = (signed char)*src++;
+      if (width > 0) {
+        skipbytes = width;
+      } else {
+        width = -width;
+        if (width > 65) {
+          fill = *src++;
+          fillbytes = width - 65;
+        } else {
+          copybytes = width;
+        } 
+      }
+    }
+    if (skipbytes > 0) {
+      --skipbytes;
+      return false;
+    }
+    if (fillbytes > 0) {
+      --fillbytes;
+      *dst = fill;
+    } else {
+      --copybytes;
+      *dst = *src++;
+    }
+    return true;
+  }
+  void next_row() {}
+
+};
+
 // Triangular (2: <|, 3: |>).
 struct triangular_texture {
   const uint8_t* src;
@@ -246,6 +286,48 @@ void world_draw_black_tile(BYTE *pBuff)
     int width = 64 - 4 * dy;
     memset(dst + 2 * dy, 0, width);
     dst -= 768;
+  }
+}
+
+void Cel2DecDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+  skip_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, solid{}, identity);
+  }
+}
+
+void Cel2DecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+	BYTE *tbl = &pLightTbl[light_table_index * 256];
+  skip_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, solid{}, lit{tbl});
+  }
+}
+
+void Cel2DecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+	BYTE *tbl = &pLightTbl[light_table_index * 256];
+  skip_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, checkered{true}, lit{tbl});
+  }
+}
+
+void Cl2DecDatLightTbl2(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *pTable)
+{
+  rle_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, nWidth, true, tex, solid{}, lit{pTable});
+  }
+}
+
+void Cl2DecDatFrm4(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int nWidth)
+{
+  rle_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, nWidth, true, tex, solid{}, identity);
   }
 }
 
