@@ -434,7 +434,7 @@ void town_draw_clipped_town(BYTE *pBuff, int sx, int sy, int dx, int dy, int efl
 		}
 	}
 	if (dFlags[sx][sy] & BFLAG_DEAD_PLAYER) {
-		DrawDeadPlayer(sx, sy, dx, dy, 8);
+		DrawDeadPlayer(sx, sy, dx, dy);
 	}
 	if (dPlayer[sx][sy] > 0) {
 		bv = dPlayer[sx][sy] - 1;
@@ -449,7 +449,7 @@ void town_draw_clipped_town(BYTE *pBuff, int sx, int sy, int dx, int dy, int efl
 		}
 	}
 	if (dFlags[sx][sy] & BFLAG_MISSILE) {
-		DrawClippedMissile(sx, sy, dx, dy, 8, 0);
+		DrawClippedMissile(sx, sy, dx, dy, 0);
 	}
 	if (dArch[sx][sy] != 0) {
 		town_special_lower(pBuff, dArch[sx][sy]);

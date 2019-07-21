@@ -10,40 +10,29 @@ extern char arch_draw_type;
 extern DDSURFACEDESC DDS_desc;
 extern int cel_transparency_active; // weak
 extern int level_piece_id;
-extern void (*DrawPlrProc)(int, int, int, int, int, BYTE *, int, int, int, int);
 extern int draw_monster_num;
 
 void ClearCursor();
-void DrawClippedMissile(int x, int y, int sx, int sy, int capChunks, BOOL pre);
-void DrawDeadPlayer(int x, int y, int sx, int sy, int capChunks);
-void DrawView(int StartX, int StartY);
+void ClearScreenBuffer();
+void DoBlitScreen(DWORD dwX, DWORD dwY, DWORD dwWdt, DWORD dwHgt);
+void DrawAndBlit();
+void DrawClippedMissile(int x, int y, int sx, int sy, BOOL pre);
+void DrawDeadPlayer(int x, int y, int sx, int sy);
 void DrawGame(int x, int y);
-void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag);
+void DrawMain(int dwHgt, BOOL draw_desc, BOOL draw_hp, BOOL draw_mana, BOOL draw_sbar, BOOL draw_btn);
+void DrawView(int StartX, int StartY);
 void scrollrt_draw_clipped_dungeon(BYTE *pBuff, int sx, int sy, int dx, int dy, int eflag);
 void scrollrt_draw_clipped_e_flag(BYTE *pBuff, int x, int y, int sx, int sy);
-void scrollrt_draw_lower_2(int x, int y, int sx, int sy, int chunks, int skipChunks, int eflag);
-void scrollrt_draw_upper(int x, int y, int sx, int sy, int chunks, int capChunks, int eflag);
-void scrollrt_draw_dungeon(BYTE *pBuff, int sx, int sy, int capChunks, int CelCap, int dx, int dy, int eflag);
-void scrollrt_draw_e_flag(BYTE *pBuff, int x, int y, int capChunks, int CelCap, int sx, int sy);
-void DrawZoom(int x, int y);
-void ClearScreenBuffer();
+void scrollrt_draw_cursor_back_buffer();
+void scrollrt_draw_cursor_item();
+void scrollrt_draw_game_screen(BOOL draw_cursor);
+void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag);
+
 #ifdef _DEBUG
 void ScrollView();
 void EnableFrameCount();
-#endif
-void scrollrt_draw_game_screen(BOOL draw_cursor);
-void scrollrt_draw_cursor_back_buffer();
-void scrollrt_draw_cursor_item();
-void DrawMain(int dwHgt, BOOL draw_desc, BOOL draw_hp, BOOL draw_mana, BOOL draw_sbar, BOOL draw_btn);
-#ifdef _DEBUG
 void DrawFPS();
 #endif
-void DoBlitScreen(DWORD dwX, DWORD dwY, DWORD dwWdt, DWORD dwHgt);
-void DrawAndBlit();
-
-/* rdata */
-
-/* data */
 
 /* used in 1.00 debug */
 extern char *szMonModeAssert[18];
