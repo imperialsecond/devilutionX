@@ -401,34 +401,34 @@ void town_draw_clipped_town(BYTE *pBuff, int sx, int sy, int dx, int dy, int efl
 		bv = dItem[sx][sy] - 1;
 		px = dx - item[bv]._iAnimWidth2;
 		if (bv == pcursitem) {
-			CelDrawHdrClrHL(181, px, dy, item[bv]._iAnimData, item[bv]._iAnimFrame, item[bv]._iAnimWidth, 0, 8);
+			CelDrawHdrClrHL(181, px, dy, item[bv]._iAnimData, item[bv]._iAnimFrame, item[bv]._iAnimWidth);
 		}
-		Cel2DrawHdrOnly(px, dy, item[bv]._iAnimData, item[bv]._iAnimFrame, item[bv]._iAnimWidth, 0, 8);
+		Cel2DrawHdrOnly(px, dy, item[bv]._iAnimData, item[bv]._iAnimFrame, item[bv]._iAnimWidth);
 	}
 	if (dFlags[sx][sy] & BFLAG_MONSTLR) {
 		mi = -(dMonster[sx][sy - 1] + 1);
 		px = dx - towner[mi]._tAnimWidth2;
 		if (mi == pcursmonst) {
-			CelDrawHdrClrHL(166, px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth, 0, 8);
+			CelDrawHdrClrHL(166, px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth);
 		}
-		Cel2DrawHdrOnly(px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth, 0, 8);
+		Cel2DrawHdrOnly(px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth);
 	}
 	if (dMonster[sx][sy] > 0) {
 		mi = dMonster[sx][sy] - 1;
 		px = dx - towner[mi]._tAnimWidth2;
 		if (mi == pcursmonst) {
-			CelDrawHdrClrHL(166, px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth, 0, 8);
+			CelDrawHdrClrHL(166, px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth);
 		}
-		Cel2DrawHdrOnly(px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth, 0, 8);
+		Cel2DrawHdrOnly(px, dy, towner[mi]._tAnimData, towner[mi]._tAnimFrame, towner[mi]._tAnimWidth);
 	}
 	if (dFlags[sx][sy] & BFLAG_PLAYERLR) {
 		bv = -(dPlayer[sx][sy - 1] + 1);
 		px = dx + plr[bv]._pxoff - plr[bv]._pAnimWidth2;
 		py = dy + plr[bv]._pyoff;
 		if (bv == pcursplr) {
-			Cl2DecodeClrHL(165, px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth, 0, 8);
+			Cl2DecodeClrHL(165, px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth);
 		}
-		Cl2DecodeFrm4(px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth, 0, 8);
+		Cl2DecodeFrm4(px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth);
 		if (eflag && plr[bv]._peflag) {
 			town_draw_clipped_e_flag(pBuff - 64, sx - 1, sy + 1, dx - 64, dy);
 		}
@@ -441,9 +441,9 @@ void town_draw_clipped_town(BYTE *pBuff, int sx, int sy, int dx, int dy, int efl
 		px = dx + plr[bv]._pxoff - plr[bv]._pAnimWidth2;
 		py = dy + plr[bv]._pyoff;
 		if (bv == pcursplr) {
-			Cl2DecodeClrHL(165, px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth, 0, 8);
+			Cl2DecodeClrHL(165, px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth);
 		}
-		Cl2DecodeFrm4(px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth, 0, 8);
+		Cl2DecodeFrm4(px, py, plr[bv]._pAnimData, plr[bv]._pAnimFrame, plr[bv]._pAnimWidth);
 		if (eflag && plr[bv]._peflag) {
 			town_draw_clipped_e_flag(pBuff - 64, sx - 1, sy + 1, dx - 64, dy);
 		}
