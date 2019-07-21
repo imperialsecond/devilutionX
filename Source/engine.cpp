@@ -32,92 +32,25 @@ void CelDrawDatOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 	if (!pRLEBytes)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label6
-		sub		edx, eax
-		mov		ecx, eax
-		shr		ecx, 1
-		jnb		label3
-		movsb
-		jecxz	label5
-	label3:
-		shr		ecx, 1
-		jnb		label4
-		movsw
-		jecxz	label5
-	label4:
-		rep movsd
-	label5:
-		or		edx, edx
-		jz		label7
-		jmp		label2
-	label6:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label7:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	int i;
-	BYTE width;
 	BYTE *src, *dst;
 
 	src = pRLEBytes;
 	dst = pDecodeTo;
 	w = nWidth;
 
-	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH + w) {
-		for (i = w; i;) {
-			width = *src++;
-			if (!(width & 0x80)) {
-				i -= width;
-				if (width & 1) {
-					dst[0] = src[0];
-					src++;
-					dst++;
-				}
-				width >>= 1;
-				if (width & 1) {
-					dst[0] = src[0];
-					dst[1] = src[1];
-					src += 2;
-					dst += 2;
-				}
-				width >>= 1;
-				for (; width; width--) {
-					dst[0] = src[0];
-					dst[1] = src[1];
-					dst[2] = src[2];
-					dst[3] = src[3];
-					src += 4;
-					dst += 4;
-				}
+	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH) {
+		for (i = 0; i < w;) {
+			int width = (signed char)*src++;
+			if (width > 0) {
+        memcpy(dst + i, src, width);
+        src += width;
 			} else {
-				width = -(char)width;
-				dst += width;
-				i -= width;
+				width = -width;
 			}
+			i += width;
 		}
 	}
-#endif
 }
 
 void CelDecodeOnly(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
@@ -816,7 +749,7 @@ void Cel2DecDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
 		for (int x = 0; x < texWidth;) {
 			int width = (signed char)*src++;
 			if (width > 0) {
-				if (dst < gpBufEnd) {
+				if (gpBufStart <= dst && dst < gpBufEnd) {
           memcpy(dst + x, src, width);
 				}
         src += width;

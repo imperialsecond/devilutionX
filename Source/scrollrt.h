@@ -16,7 +16,7 @@ extern int draw_monster_num;
 void ClearCursor();
 void DrawMissile(int x, int y, int sx, int sy, int CelSkip, int capChunks, BOOL pre);
 void DrawClippedMissile(int x, int y, int sx, int sy, int CelSkip, int capChunks, BOOL pre);
-void DrawDeadPlayer(int x, int y, int sx, int sy, int CelSkip, int capChunks, BOOL clipped);
+void DrawDeadPlayer(int x, int y, int sx, int sy, int CelSkip, int capChunks);
 void DrawPlayer(int pnum, int x, int y, int px, int py, BYTE *pCelBuff, int nCel, int nWidth, int CelSkip, int capChunks);
 void DrawClippedPlayer(int pnum, int x, int y, int px, int py, BYTE *pCelBuff, int nCel, int nWidth, int CelSkip, int capChunks);
 void DrawView(int StartX, int StartY);
