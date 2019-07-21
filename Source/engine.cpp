@@ -3,10 +3,6 @@
 
 DEVILUTION_BEGIN_NAMESPACE
 
-#ifdef USE_ASM
-#pragma warning(disable : 4731) // frame pointer register 'ebp' modified by inline assembly code
-#endif
-
 char gbPixelCol;  // automap pixel color 8-bit (palette entry)
 BOOL gbRotateMap; // flip - if y < x
 int orgseed;
@@ -183,102 +179,6 @@ void CelDecDatLightOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWi
 	if (!pRLEBytes)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		eax, light_table_index
-		shl		eax, 8
-		add		eax, pLightTbl
-		mov		tbl, eax
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label3
-		push	ebx
-		mov		ebx, tbl
-		sub		edx, eax
-		mov		ecx, eax
-		push	edx
-		call	CelDecDatLightEntry
-		pop		edx
-		pop		ebx
-		or		edx, edx
-		jnz		label2
-		jmp		label4
-	label3:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label4:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-		jmp		labexit
-	}
-
-	/* Assembly Macro */
-	// clang-format off
-	__asm {
-	CelDecDatLightEntry:
-		shr		cl, 1
-		jnb		label5
-		mov		dl, [esi]
-		mov		dl, [ebx+edx]
-		mov		[edi], dl
-		add		esi, 1
-		add		edi, 1
-	label5:
-		shr		cl, 1
-		jnb		label6
-		mov		dl, [esi]
-		mov		ch, [ebx+edx]
-		mov		[edi], ch
-		mov		dl, [esi+1]
-		mov		ch, [ebx+edx]
-		mov		[edi+1], ch
-		add		esi, 2
-		add		edi, 2
-	label6:
-		test	cl, cl
-		jz		labret
-	label7:
-		mov		eax, [esi]
-		add		esi, 4
-		mov		dl, al
-		mov		ch, [ebx+edx]
-		mov		dl, ah
-		ror		eax, 10h
-		mov		[edi], ch
-		mov		ch, [ebx+edx]
-		mov		dl, al
-		mov		[edi+1], ch
-		mov		ch, [ebx+edx]
-		mov		dl, ah
-		mov		[edi+2], ch
-		mov		ch, [ebx+edx]
-		mov		[edi+3], ch
-		add		edi, 4
-		dec		cl
-		jnz		label7
-	labret:
-		retn
-	}
-	// clang-format on
-
-	__asm {
-	labexit:
-	}
-#else
 	int i;
 	BYTE width;
 	BYTE *src, *dst;
@@ -321,7 +221,6 @@ void CelDecDatLightOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWi
 			}
 		}
 	}
-#endif
 }
 
 void CelDecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
@@ -337,111 +236,6 @@ void CelDecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nW
 	if (!pRLEBytes)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		eax, light_table_index
-		shl		eax, 8
-		add		eax, pLightTbl
-		mov		tbl, eax
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-		mov		eax, edi
-		and		eax, 1
-		mov		shift, eax
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label9
-		push	ebx
-		mov		ebx, tbl
-		sub		edx, eax
-		mov		ecx, eax
-		mov		eax, edi
-		and		eax, 1
-		cmp		eax, shift
-		jnz		label5
-		shr		ecx, 1
-		jnb		label3
-		inc		esi
-		inc		edi
-		jecxz	label8
-		jmp		label6
-	label3:
-		shr		ecx, 1
-		jnb		label4
-		inc		esi
-		inc		edi
-		lodsb
-		xlat
-		stosb
-		jecxz	label8
-	label4:
-		lodsd
-		inc		edi
-		ror		eax, 8
-		xlat
-		stosb
-		ror		eax, 10h
-		inc		edi
-		xlat
-		stosb
-		loop	label4
-		jmp		label8
-	label5:
-		shr		ecx, 1
-		jnb		label6
-		lodsb
-		xlat
-		stosb
-		jecxz	label8
-		jmp		label3
-	label6:
-		shr		ecx, 1
-		jnb		label7
-		lodsb
-		xlat
-		stosb
-		inc		esi
-		inc		edi
-		jecxz	label8
-	label7:
-		lodsd
-		xlat
-		stosb
-		inc		edi
-		ror		eax, 10h
-		xlat
-		stosb
-		inc		edi
-		loop	label7
-	label8:
-		pop		ebx
-		or		edx, edx
-		jz		label10
-		jmp		label2
-	label9:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label10:
-		sub		edi, w
-		mov		eax, shift
-		inc		eax
-		and		eax, 1
-		mov		shift, eax
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	int i;
 	BYTE width;
 	BYTE *src, *dst;
@@ -508,7 +302,6 @@ void CelDecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nW
 			}
 		}
 	}
-#endif
 }
 
 void CelDecodeLightOnly(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
@@ -666,53 +459,6 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, in
 	if (light >= 4)
 		idx += (light - 1) << 8;
 
-#ifdef USE_ASM
-	__asm {
-		mov		eax, pLightTbl
-		add		eax, idx
-		mov		tbl, eax
-		mov		esi, pRLEBytes
-		mov		edi, dst
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax /* use C for w? w = BUFFER_WIDTH + nWidth */
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		mov		al, [esi]
-		inc		esi
-		test	al, al
-		js		label4
-		push	ebx
-		mov		ebx, tbl
-		sub		edx, eax
-		mov		ecx, eax
-	label3:
-		mov		al, [esi]
-		inc		esi
-		mov		al, [ebx+eax]
-		mov		[edi], al
-		dec		ecx
-		lea		edi, [edi+1]
-		jnz		label3
-		pop		ebx
-		test	edx, edx
-		jz		label5
-		jmp		label2
-	label4:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label5:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	BYTE width;
 	BYTE *end;
 
@@ -737,7 +483,6 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, in
 			}
 		}
 	}
-#endif
 }
 
 void Cel2DecDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
@@ -854,109 +599,6 @@ void Cel2DecDatLightOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nW
 	if (!gpBuffer)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		eax, light_table_index
-		shl		eax, 8
-		add		eax, pLightTbl
-		mov		tbl, eax
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label5
-		push	ebx
-		mov		ebx, tbl
-		sub		edx, eax
-		cmp		edi, gpBufEnd
-		jb		label3
-		add		esi, eax
-		add		edi, eax
-		jmp		label4
-	label3:
-		mov		ecx, eax
-		push	edx
-		call	Cel2DecDatLightEntry
-		pop		edx
-	label4:
-		pop		ebx
-		or		edx, edx
-		jz		label6
-		jmp		label2
-	label5:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label6:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-		jmp		labexit
-	}
-
-	/* Assembly Macro */
-	// clang-format off
-	__asm {
-	Cel2DecDatLightEntry:
-		shr		cl, 1
-		jnb		label7
-		mov		dl, [esi]
-		mov		dl, [ebx+edx]
-		mov		[edi], dl
-		add		esi, 1
-		add		edi, 1
-	label7:
-		shr		cl, 1
-		jnb		label8
-		mov		dl, [esi]
-		mov		ch, [ebx+edx]
-		mov		[edi], ch
-		mov		dl, [esi+1]
-		mov		ch, [ebx+edx]
-		mov		[edi+1], ch
-		add		esi, 2
-		add		edi, 2
-	label8:
-		test	cl, cl
-		jz		labret
-	label9:
-		mov		eax, [esi]
-		add		esi, 4
-		mov		dl, al
-		mov		ch, [ebx+edx]
-		mov		dl, ah
-		ror		eax, 10h
-		mov		[edi], ch
-		mov		ch, [ebx+edx]
-		mov		dl, al
-		mov		[edi+1], ch
-		mov		ch, [ebx+edx]
-		mov		dl, ah
-		mov		[edi+2], ch
-		mov		ch, [ebx+edx]
-		mov		[edi+3], ch
-		add		edi, 4
-		dec		cl
-		jnz		label9
-	labret:
-		retn
-	}
-	// clang-format on
-
-	__asm {
-	labexit:
-	}
-#else
 	int i;
 	BYTE width;
 	BYTE *src, *dst;
@@ -1004,7 +646,6 @@ void Cel2DecDatLightOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nW
 			}
 		}
 	}
-#endif
 }
 
 void Cel2DecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
@@ -1023,117 +664,6 @@ void Cel2DecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int n
 	if (!gpBuffer)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		eax, light_table_index
-		shl		eax, 8
-		add		eax, pLightTbl
-		mov		tbl, eax
-		mov		esi, pRLEBytes
-		mov		edi, pDecodeTo
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-		mov		eax, edi
-		and		eax, 1
-		mov		shift, eax
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label10
-		push	ebx
-		mov		ebx, tbl
-		sub		edx, eax
-		cmp		edi, gpBufEnd
-		jb		label3
-		add		esi, eax
-		add		edi, eax
-		jmp		label9
-	label3:
-		mov		ecx, eax
-		mov		eax, edi
-		and		eax, 1
-		cmp		eax, shift
-		jnz		label6
-		shr		ecx, 1
-		jnb		label4
-		inc		esi
-		inc		edi
-		jecxz	label9
-		jmp		label7
-	label4:
-		shr		ecx, 1
-		jnb		label5
-		inc		esi
-		inc		edi
-		lodsb
-		xlat
-		stosb
-		jecxz	label9
-	label5:
-		lodsd
-		inc		edi
-		ror		eax, 8
-		xlat
-		stosb
-		ror		eax, 10h
-		inc		edi
-		xlat
-		stosb
-		loop	label5
-		jmp		label9
-	label6:
-		shr		ecx, 1
-		jnb		label7
-		lodsb
-		xlat
-		stosb
-		jecxz	label9
-		jmp		label4
-	label7:
-		shr		ecx, 1
-		jnb		label8
-		lodsb
-		xlat
-		stosb
-		inc		esi
-		inc		edi
-		jecxz	label9
-	label8:
-		lodsd
-		xlat
-		stosb
-		inc		edi
-		ror		eax, 10h
-		xlat
-		stosb
-		inc		edi
-		loop	label8
-	label9:
-		pop		ebx
-		or		edx, edx
-		jz		label11
-		jmp		label2
-	label10:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label11:
-		sub		edi, w
-		mov		eax, shift
-		inc		eax
-		and		eax, 1
-		mov		shift, eax
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	int i;
 	BYTE width;
 	BYTE *src, *dst;
@@ -1205,7 +735,6 @@ void Cel2DecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int n
 			}
 		}
 	}
-#endif
 }
 
 /**
@@ -1336,55 +865,6 @@ void Cel2DrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, i
 
 	tbl = &pLightTbl[idx];
 
-#ifdef USE_ASM
-	w = BUFFER_WIDTH + nWidth;
-
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, dst
-		mov		ecx, nDataSize
-		add		ecx, esi
-	label1:
-		push	ecx
-		mov		edx, nWidth
-		xor		ecx, ecx
-	label2:
-		xor		eax, eax
-		mov		al, [esi]
-		inc		esi
-		test	al, al
-		js		label5
-		mov		ebx, tbl
-		sub		edx, eax
-		cmp		edi, gpBufEnd
-		jb		label3
-		add		esi, eax
-		add		edi, eax
-		jmp		label4
-	label3:
-		mov		cl, [esi]
-		inc		esi
-		mov		cl, [ebx+ecx]
-		mov		[edi], cl
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label3
-	label4:
-		test	edx, edx
-		jz		label6
-		jmp		label2
-	label5:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label6:
-		pop		ecx
-		sub		edi, w
-		cmp		ecx, esi
-		jnz		label1
-	}
-#else
 	BYTE width;
 	BYTE *end;
 
@@ -1413,7 +893,6 @@ void Cel2DrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, i
 			}
 		}
 	}
-#endif
 }
 
 void CelDecodeRect(BYTE *pBuff, int CelSkip, int hgt, int wdt, BYTE *pCelBuff, int nCel, int nWidth)
@@ -1427,65 +906,6 @@ void CelDecodeRect(BYTE *pBuff, int CelSkip, int hgt, int wdt, BYTE *pCelBuff, i
 	if (!pBuff)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		ebx, pCelBuff
-		mov		eax, nCel
-		shl		eax, 2
-		add		ebx, eax
-		mov		eax, [ebx+4]
-		sub		eax, [ebx]
-		mov		end, eax
-		mov		eax, pCelBuff
-		add		eax, [ebx]
-		mov		pRLEBytes, eax
-	}
-
-	dst = &pBuff[hgt * wdt + CelSkip];
-
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, dst
-		mov		eax, wdt
-		add		eax, nWidth
-		mov		wdt, eax
-		mov		ebx, end
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label6
-		sub		edx, eax
-		mov		ecx, eax
-		shr		ecx, 1
-		jnb		label3
-		movsb
-		jecxz	label5
-	label3:
-		shr		ecx, 1
-		jnb		label4
-		movsw
-		jecxz	label5
-	label4:
-		rep movsd
-	label5:
-		or		edx, edx
-		jz		label7
-		jmp		label2
-	label6:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label7:
-		sub		edi, wdt
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	int i;
 	BYTE width;
 	DWORD *pFrameTable;
@@ -1529,7 +949,6 @@ void CelDecodeRect(BYTE *pBuff, int CelSkip, int hgt, int wdt, BYTE *pCelBuff, i
 			}
 		}
 	}
-#endif
 }
 
 /**
@@ -1548,83 +967,6 @@ void CelDecodeClr(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth
 	if (!gpBuffer)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		ebx, pCelBuff
-		mov		eax, nCel
-		shl		eax, 2
-		add		ebx, eax
-		mov		eax, [ebx+4]
-		sub		eax, [ebx]
-		mov		nDataSize, eax
-		mov		edx, pCelBuff
-		add		edx, [ebx]
-		mov		pRLEBytes, edx
-		add		edx, CelSkip
-		xor		eax, eax
-		mov		ax, [edx]
-		mov		nDataStart, eax
-		mov		edx, pRLEBytes
-		add		edx, CelCap
-		mov		ax, [edx]
-		mov		nDataCap, eax
-	}
-
-	if (!nDataStart) return;
-
-	if (CelCap == 8)
-		nDataCap = 0;
-	if (nDataCap)
-		nDataSize = nDataCap - nDataStart;
-	else
-		nDataSize -= nDataStart;
-
-	pRLEBytes += nDataStart;
-	dst = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
-
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, dst
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label5
-		sub		edx, eax
-		mov		ecx, eax
-		mov		ah, col
-	label3:
-		lodsb
-		or		al, al
-		jz		label4
-		mov		[edi-BUFFER_WIDTH], ah
-		mov		[edi-1], ah
-		mov		[edi+1], ah
-		mov		[edi+BUFFER_WIDTH], ah
-	label4:
-		inc		edi
-		loop	label3
-		or		edx, edx
-		jz		label6
-		jmp		label2
-	label5:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label6:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	BYTE width;
 	BYTE *end, *src;
 	DWORD *pFrameTable;
@@ -1670,7 +1012,6 @@ void CelDecodeClr(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth
 			}
 		}
 	}
-#endif
 }
 
 /**
@@ -1689,108 +1030,6 @@ void CelDrawHdrClrHL(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWi
 	if (!gpBuffer)
 		return;
 
-#ifdef USE_ASM
-	__asm {
-		mov		ebx, pCelBuff
-		mov		eax, nCel
-		shl		eax, 2
-		add		ebx, eax
-		mov		eax, [ebx+4]
-		sub		eax, [ebx]
-		mov		nDataSize, eax
-		mov		edx, pCelBuff
-		add		edx, [ebx]
-		mov		pRLEBytes, edx
-		add		edx, CelSkip
-		xor		eax, eax
-		mov		ax, [edx]
-		mov		nDataStart, eax
-		mov		edx, pRLEBytes
-		add		edx, CelCap
-		mov		ax, [edx]
-		mov		nDataCap, eax
-	}
-
-	if (!nDataStart) return;
-
-	if (CelCap == 8)
-		nDataCap = 0;
-	if (nDataCap)
-		nDataSize = nDataCap - nDataStart;
-	else
-		nDataSize -= nDataStart;
-
-	pRLEBytes += nDataStart;
-	dst = &gpBuffer[sx + PitchTbl[sy - 16 * CelSkip]];
-
-	__asm {
-		mov		esi, pRLEBytes
-		mov		edi, dst
-		mov		eax, BUFFER_WIDTH
-		add		eax, nWidth
-		mov		w, eax
-		mov		ebx, nDataSize
-		add		ebx, esi
-	label1:
-		mov		edx, nWidth
-	label2:
-		xor		eax, eax
-		lodsb
-		or		al, al
-		js		label10
-		sub		edx, eax
-		mov		ecx, gpBufEnd
-		cmp		edi, ecx
-		jb		label3
-		add		esi, eax
-		add		edi, eax
-		jmp		label9
-	label3:
-		sub		ecx, BUFFER_WIDTH
-		cmp		edi, ecx
-		jnb		label6
-		mov		ecx, eax
-		mov		ah, col
-	label4:
-		lodsb
-		or		al, al
-		jz		label5
-		mov		[edi-BUFFER_WIDTH], ah
-		mov		[edi-1], ah
-		mov		[edi+1], ah
-		mov		[edi+BUFFER_WIDTH], ah
-	label5:
-		inc		edi
-		loop	label4
-		jmp		label9
-	label6:
-		mov		ecx, eax
-		mov		ah, col
-	label7:
-		lodsb
-		or		al, al
-		jz		label8
-		mov		[edi-BUFFER_WIDTH], ah
-		mov		[edi-1], ah
-		mov		[edi+1], ah
-	label8:
-		inc		edi
-		loop	label7
-	label9:
-		or		edx, edx
-		jz		label11
-		jmp		label2
-	label10:
-		neg		al
-		add		edi, eax
-		sub		edx, eax
-		jnz		label2
-	label11:
-		sub		edi, w
-		cmp		ebx, esi
-		jnz		label1
-	}
-#else
 	BYTE width;
 	BYTE *end, *src;
 	DWORD *pFrameTable;
@@ -1853,7 +1092,6 @@ void CelDrawHdrClrHL(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWi
 			}
 		}
 	}
-#endif
 }
 
 void ENG_set_pixel(int sx, int sy, BYTE col)
@@ -1867,19 +1105,8 @@ void ENG_set_pixel(int sx, int sy, BYTE col)
 
 	dst = &gpBuffer[sx + PitchTbl[sy]];
 
-#ifdef USE_ASM
-	__asm {
-		mov		edi, dst
-		cmp		edi, gpBufEnd
-		jnb		label1
-		mov		al, col
-		mov		[edi], al
-	label1:
-	}
-#else
 	if (dst < gpBufEnd)
 		*dst = col;
-#endif
 }
 
 void engine_draw_pixel(int sx, int sy)
@@ -1898,19 +1125,8 @@ void engine_draw_pixel(int sx, int sy)
 		dst = &gpBuffer[sx + PitchTbl[sy]];
 	}
 
-#ifdef USE_ASM
-	__asm {
-		mov		edi, dst
-		cmp		edi, gpBufEnd
-		jnb		label1
-		mov		al, gbPixelCol
-		mov		[edi], al
-	label1:
-	}
-#else
 	if (dst < gpBufEnd)
 		*dst = gbPixelCol;
-#endif
 }
 
 // Exact copy from https://github.com/erich666/GraphicsGems/blob/dad26f941e12c8bf1f96ea21c1c04cd2206ae7c9/gems/DoubleLine.c
@@ -2319,95 +1535,6 @@ void Cl2ApplyTrans(BYTE *p, BYTE *ttbl, int nCel)
 
 void Cl2DecDatFrm2(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, char col)
 {
-#ifdef USE_ASM
-	__asm {
-		push	ebx
-		push	esi
-		push	edi
-		mov		esi, edx /// UNSAFE: use 'mov esi, pRLEBytes'
-		mov		edi, ecx /// UNSAFE: use 'mov edi, pDecodeTo'
-		xor		eax, eax
-		mov		ebx, nWidth
-		xor		edx, edx
-		mov		ecx, nDataSize
-		mov		dl, col
-	label1:
-		mov		al, [esi]
-		inc		esi
-		dec		ecx
-		test	al, al
-		jns		label7
-		neg		al
-		cmp		al, 41h
-		jle		label3
-		sub		al, 41h
-		dec		ecx
-		mov		dh, [esi]
-		inc		esi
-		test	dh, dh
-		jz		label7
-		mov		[edi-1], dl
-		sub		ebx, eax
-		mov		[edi+eax], dl
-	label2:
-		mov		[edi-BUFFER_WIDTH], dl
-		mov		[edi+BUFFER_WIDTH], dl
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label2
-		jmp		label6
-	label3:
-		sub		ecx, eax
-		sub		ebx, eax
-	label4:
-		mov		dh, [esi]
-		inc		esi
-		test	dh, dh
-		jz		label5
-		mov		[edi-1], dl
-		mov		[edi+1], dl
-		mov		[edi-BUFFER_WIDTH], dl
-		mov		[edi+BUFFER_WIDTH], dl
-	label5:
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label4
-	label6:
-		test	ebx, ebx
-		jnz		label11
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-		jmp		label11
-	label7:
-		cmp		eax, ebx
-		jle		label8
-		mov		edx, ebx
-		add		edi, ebx
-		sub		eax, ebx
-		jmp		label9
-	label8:
-		mov		edx, eax
-		add		edi, eax
-		xor		eax, eax
-	label9:
-		sub		ebx, edx
-		jnz		label10
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-	label10:
-		test	eax, eax
-		jnz		label7
-		mov		dl, col
-	label11:
-		test	ecx, ecx
-		jnz		label1
-		pop		edi
-		pop		esi
-		pop		ebx
-	}
-#else
 	int w;
 	char width;
 	BYTE *src, *dst;
@@ -2476,7 +1603,6 @@ void Cl2DecDatFrm2(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, 
 			}
 		}
 	}
-#endif
 }
 
 void Cl2DecDatLightTbl1(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *pTable)
@@ -2588,88 +1714,6 @@ void Cl2DecodeFrm4(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, int Cel
 
 void Cl2DecDatFrm4(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 {
-#ifdef USE_ASM
-	__asm {
-		push	ebx
-		push	esi
-		push	edi
-		mov		esi, edx /// UNSAFE: use 'mov esi, pRLEBytes'
-		mov		edi, ecx /// UNSAFE: use 'mov edi, pDecodeTo'
-		xor		eax, eax
-		mov		ebx, nWidth
-		mov		ecx, nDataSize
-	label1:
-		mov		al, [esi]
-		inc		esi
-		dec		ecx
-		test	al, al
-		jns		label7
-		neg		al
-		cmp		al, 41h
-		jle		label3
-		sub		al, 41h
-		dec		ecx
-		mov		dl, [esi]
-		inc		esi
-		cmp		edi, gpBufEnd
-		jge		label7
-		sub		ebx, eax
-	label2:
-		mov		[edi], dl
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label2
-		jmp		label6
-	label3:
-		sub		ecx, eax
-		cmp		edi, gpBufEnd
-		jl		label4
-		add		esi, eax
-		jmp		label7
-	label4:
-		sub		ebx, eax
-	label5:
-		mov		dl, [esi]
-		inc		esi
-		mov		[edi], dl
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label5
-	label6:
-		test	ebx, ebx
-		jnz		label11
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-		jmp		label11
-	label7:
-		cmp		eax, ebx
-		jle		label8
-		mov		edx, ebx
-		add		edi, ebx
-		sub		eax, ebx
-		jmp		label9
-	label8:
-		mov		edx, eax
-		add		edi, eax
-		xor		eax, eax
-	label9:
-		sub		ebx, edx
-		jnz		label10
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-	label10:
-		test	eax, eax
-		jnz		label7
-	label11:
-		test	ecx, ecx
-		jnz		label1
-		pop		edi
-		pop		esi
-		pop		ebx
-	}
-#else
 	int w;
 	char width;
 	BYTE fill;
@@ -2737,7 +1781,6 @@ void Cl2DecDatFrm4(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 			}
 		}
 	}
-#endif
 }
 
 /**
@@ -2786,102 +1829,6 @@ void Cl2DecodeClrHL(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWid
 
 void Cl2DecDatClrHL(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, char col)
 {
-#ifdef USE_ASM
-	__asm {
-		push	ebx
-		push	esi
-		push	edi
-		mov		esi, edx /// UNSAFE: use 'mov esi, pRLEBytes'
-		mov		edi, ecx /// UNSAFE: use 'mov edi, pDecodeTo'
-		xor		eax, eax
-		mov		ebx, nWidth
-		xor		edx, edx
-		mov		ecx, nDataSize
-		mov		dl, col
-	label1:
-		mov		al, [esi]
-		inc		esi
-		dec		ecx
-		test	al, al
-		jns		label9
-		neg		al
-		cmp		al, 41h
-		jle		label3
-		sub		al, 41h
-		dec		ecx
-		mov		dh, [esi]
-		inc		esi
-		test	dh, dh
-		jz		label9
-		cmp		edi, gpBufEnd
-		jge		label9
-		mov		[edi-1], dl
-		sub		ebx, eax
-		mov		[edi+eax], dl
-	label2:
-		mov		[edi-BUFFER_WIDTH], dl
-		mov		[edi+BUFFER_WIDTH], dl
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label2
-		jmp		label7
-	label3:
-		sub		ecx, eax
-		cmp		edi, gpBufEnd
-		jl		label4
-		add		esi, eax
-		jmp		label9
-	label4:
-		sub		ebx, eax
-	label5:
-		mov		dh, [esi]
-		inc		esi
-		test	dh, dh
-		jz		label6
-		mov		[edi-1], dl
-		mov		[edi+1], dl
-		mov		[edi-BUFFER_WIDTH], dl
-		mov		[edi+BUFFER_WIDTH], dl
-	label6:
-		dec		eax
-		lea		edi, [edi+1]
-		jnz		label5
-	label7:
-		test	ebx, ebx
-		jnz		label13
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-		jmp		label13
-	label9:
-		cmp		eax, ebx
-		jle		label10
-		mov		edx, ebx
-		add		edi, ebx
-		sub		eax, ebx
-		jmp		label11
-	label10:
-		mov		edx, eax
-		add		edi, eax
-		xor		eax, eax
-	label11:
-		sub		ebx, edx
-		jnz		label12
-		mov		ebx, nWidth
-		sub		edi, BUFFER_WIDTH
-		sub		edi, ebx
-	label12:
-		test	eax, eax
-		jnz		label9
-		mov		dl, col
-	label13:
-		test	ecx, ecx
-		jnz		label1
-		pop		edi
-		pop		esi
-		pop		ebx
-	}
-#else
 	int w;
 	char width;
 	BYTE *src, *dst;
@@ -2954,7 +1901,6 @@ void Cl2DecDatClrHL(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth,
 			}
 		}
 	}
-#endif
 }
 
 /**
