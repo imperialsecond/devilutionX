@@ -359,4 +359,33 @@ void Cl2DecDatFrm4(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int nWidth)
   }
 }
 
+static uint8_t TextGrayToBlue(uint8_t src) {
+  src -= PAL16_GRAY;
+  if (src >= 14) return PAL16_BLUE + 15;
+  return src + PAL16_BLUE + 2;
+}
+
+static uint8_t TextGrayToRed(uint8_t src) {
+  return src - PAL16_GRAY + PAL16_RED;
+}
+
+static uint8_t TextGrayToGold(uint8_t src) {
+  src -= PAL16_GRAY;
+  if (src >= 14) return PAL16_YELLOW + 15;
+  return src + PAL16_YELLOW + 2;
+}
+
+void CPrintString(int nOffset, int nCel, char col) {
+	auto pFrameTable = (DWORD *)&pPanelText[4 * nCel];
+	auto src = &pPanelText[pFrameTable[0]];
+	int len = pFrameTable[1] - pFrameTable[0];
+	auto dst = &gpBuffer[nOffset];
+  constexpr uint8_t (*color_conv[4])(uint8_t) { identity, TextGrayToBlue, TextGrayToRed, TextGrayToGold };
+
+  skip_texture tex{src};
+  while (tex.src < src + len) {
+    drawRow(dst, 13, true, tex, solid{}, color_conv[col], false /* bounds check */);
+  }
+}
+
 DEVILUTION_END_NAMESPACE
