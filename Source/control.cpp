@@ -1580,52 +1580,28 @@ void DrawChr()
  */
 void ADD_PlrStringXY(int x, int y, int width, char *pszStr, char col)
 {
-	BYTE c;
-	char *tmp;
-	int nOffset, screen_x, line, widthOffset;
-
-	nOffset = x + PitchTbl[y + SCREEN_Y] + 64;
-	widthOffset = width - x + 1;
-	line = 0;
-	screen_x = 0;
-	tmp = pszStr;
-	while (*tmp) {
-		c = gbFontTransTbl[(BYTE)*tmp++];
-		screen_x += fontkern[fontframe[c]] + 1;
-	}
-	if (screen_x < widthOffset)
-		line = (widthOffset - screen_x) >> 1;
-	nOffset += line;
-	while (*pszStr) {
-		c = gbFontTransTbl[(BYTE)*pszStr++];
-		c = fontframe[c];
-		line += fontkern[c] + 1;
-		if (c) {
-			if (line < widthOffset)
-				CPrintString(nOffset, c, col);
-		}
-		nOffset += fontkern[c] + 1;
-	}
+  MY_PlrStringXY(x, y, width, pszStr, col, 1);
 }
 
-void MY_PlrStringXY(int x, int y, int width, char *pszStr, char col, int base)
+static void DrawString(int x, int y, bool cjustflag, int widthOffset, char *pszStr, char col, int base)
 {
 	BYTE c;
 	char *tmp;
-	int nOffset, screen_x, line, widthOffset;
+	int nOffset, screen_x, line;
 
-	nOffset = x + PitchTbl[y + SCREEN_Y] + 64;
-	widthOffset = width - x + 1;
+	nOffset = x + PitchTbl[y];
 	line = 0;
-	screen_x = 0;
-	tmp = pszStr;
-	while (*tmp) {
-		c = gbFontTransTbl[(BYTE)*tmp++];
-		screen_x += fontkern[fontframe[c]] + base;
-	}
-	if (screen_x < widthOffset)
-		line = (widthOffset - screen_x) >> 1;
-	nOffset += line;
+	if (cjustflag) {
+    screen_x = 0;
+    tmp = pszStr;
+    while (*tmp) {
+      c = gbFontTransTbl[(BYTE)*tmp++];
+      screen_x += fontkern[fontframe[c]] + base;
+    }
+    if (screen_x < widthOffset)
+      line = (widthOffset - screen_x) >> 1;
+    nOffset += line;
+  }
 	while (*pszStr) {
 		c = gbFontTransTbl[(BYTE)*pszStr++];
 		c = fontframe[c];
@@ -1636,6 +1612,16 @@ void MY_PlrStringXY(int x, int y, int width, char *pszStr, char col, int base)
 		}
 		nOffset += fontkern[c] + base;
 	}
+}
+
+void MY_PlrStringXY(int x, int y, int width, char *pszStr, char col, int base)
+{
+  DrawString(x + 64, y + SCREEN_Y, true, width - x + 1, pszStr, col, base);
+}
+
+void PrintSBookStr(int x, int y, char *pszStr)
+{
+  DrawString(x + 440, y, false, 222, pszStr, COL_WHITE, 1);
 }
 
 void CheckLvlBtn()
@@ -1909,7 +1895,7 @@ void DrawSpellBook()
 				SetSpellTrans(RSPLTYPE_SKILL);
 				DrawSpellCel(395, yp, pSBkIconCels, 43, 37);
 			}
-			PrintSBookStr(10, yp - 23, FALSE, spelldata[sn].sNameText, COL_WHITE);
+			PrintSBookStr(10, yp - 23, spelldata[sn].sNameText);
 			switch (GetSBookTrans(sn, FALSE)) {
 			case RSPLTYPE_SKILL:
 				strcpy(tempstr, "Skill");
@@ -1928,7 +1914,7 @@ void DrawSpellBook()
 				if (sn == SPL_BONESPIRIT) {
 					sprintf(tempstr, "Mana: %i  Dam: 1/3 tgt hp", mana);
 				}
-				PrintSBookStr(10, yp - 1, FALSE, tempstr, COL_WHITE);
+				PrintSBookStr(10, yp - 1, tempstr);
 				lvl = plr[myplr]._pSplLvl[sn] + plr[myplr]._pISplLvlAdd;
 				if (lvl < 0) {
 					lvl = 0;
@@ -1940,40 +1926,9 @@ void DrawSpellBook()
 				}
 				break;
 			}
-			PrintSBookStr(10, yp - 12, FALSE, tempstr, COL_WHITE);
+			PrintSBookStr(10, yp - 12, tempstr);
 		}
 		yp += 43;
-	}
-}
-
-void PrintSBookStr(int x, int y, BOOL cjustflag, char *pszStr, char col)
-{
-	BYTE c;
-	char *tmp;
-	int screen_x, line, width;
-
-	width = PitchTbl[y] + x + 440;
-	line = 0;
-	if (cjustflag) {
-		screen_x = 0;
-		tmp = pszStr;
-		while (*tmp) {
-			c = gbFontTransTbl[(BYTE)*tmp++];
-			screen_x += fontkern[fontframe[c]] + 1;
-		}
-		if (screen_x < 222)
-			line = (222 - screen_x) >> 1;
-		width += line;
-	}
-	while (*pszStr) {
-		c = gbFontTransTbl[(BYTE)*pszStr++];
-		c = fontframe[c];
-		line += fontkern[c] + 1;
-		if (c) {
-			if (line <= 222)
-				CPrintString(width, c, col);
-		}
-		width += fontkern[c] + 1;
 	}
 }
 
