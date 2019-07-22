@@ -17,71 +17,14 @@ BOOL gbNotInView; // valid - if x/y are in bounds
 const int rand_increment = 1;
 const int rand_multiplier = 0x015A4E35;
 
-void CelDrawDatOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
-{
-	int w;
-
-	/// ASSERT: assert(pDecodeTo != NULL);
-	if (!pDecodeTo)
-		return;
-	/// ASSERT: assert(pRLEBytes != NULL);
-	if (!pRLEBytes)
-		return;
-
-	int i;
-	BYTE *src, *dst;
-
-	src = pRLEBytes;
-	dst = pDecodeTo;
-	w = nWidth;
-
-	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH) {
-		for (i = 0; i < w;) {
-			int width = (signed char)*src++;
-			if (width > 0) {
-        memcpy(dst + i, src, width);
-        src += width;
-			} else {
-				width = -width;
-			}
-			i += width;
-		}
-	}
-}
-
 void CelDecodeOnly(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	DWORD *pFrameTable;
-
-	/// ASSERT: assert(gpBuffer);
-	if (!gpBuffer)
-		return;
-	/// ASSERT: assert(pCelBuff != NULL);
-	if (!pCelBuff)
-		return;
-
-	pFrameTable = (DWORD *)pCelBuff;
-
-	CelDrawDatOnly(
-	    &gpBuffer[sx + PitchTbl[sy]],
-	    &pCelBuff[pFrameTable[nCel]],
-	    pFrameTable[nCel + 1] - pFrameTable[nCel],
-	    nWidth);
+	CelDecDatOnly(&gpBuffer[sx + PitchTbl[sy]], pCelBuff, nCel, nWidth);
 }
 
 void CelDecDatOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	DWORD *pFrameTable;
-
-	/// ASSERT: assert(pCelBuff != NULL);
-	if (!pCelBuff)
-		return;
-	/// ASSERT: assert(pBuff != NULL);
-	if (!pBuff)
-		return;
-
-	pFrameTable = (DWORD *)pCelBuff;
-
+	DWORD *pFrameTable = (DWORD *)pCelBuff;
 	CelDrawDatOnly(
 	    pBuff,
 	    &pCelBuff[pFrameTable[nCel]],
@@ -91,195 +34,19 @@ void CelDecDatOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 
 void CelDrawHdrOnly(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	int nDataStart, nDataSize;
-	BYTE *pRLEBytes;
-	DWORD *pFrameTable;
-
-	/// ASSERT: assert(gpBuffer);
-	if (!gpBuffer)
-		return;
-	/// ASSERT: assert(pCelBuff != NULL);
-	if (!pCelBuff)
-		return;
-
-	pFrameTable = (DWORD *)pCelBuff;
-
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	if (!nDataStart)
-		return;
-
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
-	nDataSize -= nDataStart;
-
-	CelDrawDatOnly(
-	    &gpBuffer[sx + PitchTbl[sy]],
-	    pRLEBytes + nDataStart,
-	    nDataSize,
-	    nWidth);
+  CelDecodeHdrOnly(&gpBuffer[sx + PitchTbl[sy]], pCelBuff, nCel, nWidth);
 }
 
 void CelDecodeHdrOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	int nDataStart, nDataSize;
-	BYTE *pRLEBytes;
-	DWORD *pFrameTable;
-
-	/// ASSERT: assert(pCelBuff != NULL);
-	if (!pCelBuff)
-		return;
-	/// ASSERT: assert(pBuff != NULL);
-	if (!pBuff)
-		return;
-
-	pFrameTable = (DWORD *)pCelBuff;
-
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
+	DWORD *pFrameTable = (DWORD *)pCelBuff;
+	BYTE *pRLEBytes = &pCelBuff[pFrameTable[nCel]];
+	int nDataStart = *(WORD *)&pRLEBytes[0];
 	if (!nDataStart)
 		return;
 
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
-	nDataSize -= nDataStart;
-
+	int nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel] - nDataStart;
 	CelDrawDatOnly(pBuff, pRLEBytes + nDataStart, nDataSize, nWidth);
-}
-
-void CelDecDatLightOnly(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
-{
-	int w;
-	BYTE *tbl;
-
-	/// ASSERT: assert(pDecodeTo != NULL);
-	if (!pDecodeTo)
-		return;
-	/// ASSERT: assert(pRLEBytes != NULL);
-	if (!pRLEBytes)
-		return;
-
-	int i;
-	BYTE width;
-	BYTE *src, *dst;
-
-	src = pRLEBytes;
-	dst = pDecodeTo;
-	tbl = &pLightTbl[light_table_index * 256];
-	w = nWidth;
-
-	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH + w) {
-		for (i = w; i;) {
-			width = *src++;
-			if (!(width & 0x80)) {
-				i -= width;
-				if (width & 1) {
-					dst[0] = tbl[src[0]];
-					src++;
-					dst++;
-				}
-				width >>= 1;
-				if (width & 1) {
-					dst[0] = tbl[src[0]];
-					dst[1] = tbl[src[1]];
-					src += 2;
-					dst += 2;
-				}
-				width >>= 1;
-				for (; width; width--) {
-					dst[0] = tbl[src[0]];
-					dst[1] = tbl[src[1]];
-					dst[2] = tbl[src[2]];
-					dst[3] = tbl[src[3]];
-					src += 4;
-					dst += 4;
-				}
-			} else {
-				width = -(char)width;
-				dst += width;
-				i -= width;
-			}
-		}
-	}
-}
-
-void CelDecDatLightTrans(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
-{
-	int w;
-	BOOL shift;
-	BYTE *tbl;
-
-	/// ASSERT: assert(pDecodeTo != NULL);
-	if (!pDecodeTo)
-		return;
-	/// ASSERT: assert(pRLEBytes != NULL);
-	if (!pRLEBytes)
-		return;
-
-	int i;
-	BYTE width;
-	BYTE *src, *dst;
-
-	src = pRLEBytes;
-	dst = pDecodeTo;
-	tbl = &pLightTbl[light_table_index * 256];
-	w = nWidth;
-	shift = (BYTE)dst & 1;
-
-	for (; src != &pRLEBytes[nDataSize]; dst -= BUFFER_WIDTH + w, shift = (shift + 1) & 1) {
-		for (i = w; i;) {
-			width = *src++;
-			if (!(width & 0x80)) {
-				i -= width;
-				if (((BYTE)dst & 1) == shift) {
-					if (!(width & 1)) {
-						goto L_ODD;
-					} else {
-						src++;
-						dst++;
-					L_EVEN:
-						width >>= 1;
-						if (width & 1) {
-							dst[0] = tbl[src[0]];
-							src += 2;
-							dst += 2;
-						}
-						width >>= 1;
-						for (; width; width--) {
-							dst[0] = tbl[src[0]];
-							dst[2] = tbl[src[2]];
-							src += 4;
-							dst += 4;
-						}
-					}
-				} else {
-					if (!(width & 1)) {
-						goto L_EVEN;
-					} else {
-						dst[0] = tbl[src[0]];
-						src++;
-						dst++;
-					L_ODD:
-						width >>= 1;
-						if (width & 1) {
-							dst[1] = tbl[src[1]];
-							src += 2;
-							dst += 2;
-						}
-						width >>= 1;
-						for (; width; width--) {
-							dst[1] = tbl[src[1]];
-							dst[3] = tbl[src[3]];
-							src += 4;
-							dst += 4;
-						}
-					}
-				}
-			} else {
-				width = -(char)width;
-				dst += width;
-				i -= width;
-			}
-		}
-	}
 }
 
 void CelDecodeLightOnly(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)

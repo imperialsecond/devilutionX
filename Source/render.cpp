@@ -174,13 +174,13 @@ struct lit {
 
 template <typename Texture, typename Mask, typename Transform>
 static void drawRow(BYTE*& dst, int width, bool left_aligned,
-    Texture&& texture, Mask&& mask, Transform&& transform) {
+    Texture&& texture, Mask&& mask, Transform&& transform, bool bounds_check = true) {
   texture.next_row();
   mask.next_row();
 
   int offset = left_aligned ? 0 : (32 - width);
   uint8_t col;
-  if (gpBufStart <= dst && dst < gpBufEnd) {
+  if (!bounds_check || (gpBufStart <= dst && dst < gpBufEnd)) {
     for (int i = 0; i < width; ++i) {
       // NO short-circuit.
       if (mask() & texture(&col)) {
@@ -297,12 +297,29 @@ void Cel2DecDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
   }
 }
 
+void CelDrawDatOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+  skip_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, solid{}, identity, false /* bounds check */);
+  }
+}
+
 void Cel2DecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
 {
 	BYTE *tbl = &pLightTbl[light_table_index * 256];
   skip_texture tex{pRLEBytes};
   while (tex.src < pRLEBytes + nDataSize) {
     drawRow(dst, texWidth, true, tex, solid{}, lit{tbl});
+  }
+}
+
+void CelDecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+	BYTE *tbl = &pLightTbl[light_table_index * 256];
+  skip_texture tex{pRLEBytes};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, solid{}, lit{tbl}, false /* bounds check */);
   }
 }
 
@@ -313,6 +330,16 @@ void Cel2DecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidt
   checkered mask{};
   while (tex.src < pRLEBytes + nDataSize) {
     drawRow(dst, texWidth, true, tex, mask, lit{tbl});
+  }
+}
+
+void CelDecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
+{
+	BYTE *tbl = &pLightTbl[light_table_index * 256];
+  skip_texture tex{pRLEBytes};
+  checkered mask{};
+  while (tex.src < pRLEBytes + nDataSize) {
+    drawRow(dst, texWidth, true, tex, mask, lit{tbl}, false /* bounds check */);
   }
 }
 
