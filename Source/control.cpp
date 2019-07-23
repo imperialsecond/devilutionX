@@ -469,45 +469,7 @@ void SetFlaskHeight(BYTE *pCelBuff, int min, int max, int x, int y)
 
 void DrawFlask(BYTE *pCelBuff, int w, int nSrcOff, BYTE *pBuff, int nDstOff, int h)
 {
-#ifdef USE_ASM
-	__asm {
-		mov		esi, pCelBuff
-		add		esi, nSrcOff
-		mov		edi, pBuff
-		add		edi, nDstOff
-		mov		edx, h
-	label1:
-		mov		ecx, 59
-	label2:
-		lodsb
-		or		al, al
-		jz		label3
-		mov		[edi], al
-	label3:
-		inc		edi
-		loop	label2
-		add		esi, w
-		sub		esi, 59
-		add		edi, BUFFER_WIDTH - 59
-		dec		edx
-		jnz		label1
-	}
-#else
-	int wdt, hgt;
-	BYTE *src, *dst;
-
-	src = &pCelBuff[nSrcOff];
-	dst = &pBuff[nDstOff];
-
-	for (hgt = h; hgt; hgt--, src += w - 59, dst += BUFFER_WIDTH - 59) {
-		for (wdt = 59; wdt; wdt--) {
-			if (*src)
-				*dst = *src;
-			src++;
-			dst++;
-		}
-	}
-#endif
+  CopyRectTransparent(&pBuff[nDstOff], &pCelBuff[nSrcOff], w, 59, h);
 }
 
 void DrawLifeFlask()
@@ -1555,80 +1517,6 @@ int DrawDurIcon4Item(ItemStruct *pItem, int x, int c)
 		c += 8;
 	CelDecodeOnly(x, 495, pDurIcons, c, 32);
 	return x - 40;
-}
-
-void RedBack()
-{
-	int idx = 4608;
-
-	/// ASSERT: assert(gpBuffer);
-
-#ifdef USE_ASM
-	if (leveltype != DTYPE_HELL) {
-		__asm {
-			mov		edi, gpBuffer
-			add		edi, SCREENXY(0, 0)
-			mov		ebx, pLightTbl
-			add		ebx, idx
-			mov		edx, VIEWPORT_HEIGHT
-		lx_label1:
-			mov		ecx, 640
-		lx_label2:
-			mov		al, [edi]
-			xlat
-			stosb
-			loop	lx_label2
-			add		edi, BUFFER_WIDTH - 640
-			dec		edx
-			jnz		lx_label1
-		}
-	} else {
-		__asm {
-			mov		edi, gpBuffer
-			add		edi, SCREENXY(0, 0)
-			mov		ebx, pLightTbl
-			add		ebx, idx
-			mov		edx, VIEWPORT_HEIGHT
-		l4_label1:
-			mov		ecx, 640
-		l4_label2:
-			mov		al, [edi]
-			cmp		al, 32
-			jb		l4_label3
-			xlat
-		l4_label3:
-			stosb
-			loop	l4_label2
-			add		edi, BUFFER_WIDTH - 640
-			dec		edx
-			jnz		l4_label1
-		}
-	}
-#else
-	int w, h;
-	BYTE *dst, *tbl;
-
-	if (leveltype != DTYPE_HELL) {
-		dst = &gpBuffer[SCREENXY(0, 0)];
-		tbl = &pLightTbl[idx];
-		for (h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH - 640) {
-			for (w = 640; w; w--) {
-				*dst = tbl[*dst];
-				dst++;
-			}
-		}
-	} else {
-		dst = &gpBuffer[SCREENXY(0, 0)];
-		tbl = &pLightTbl[idx];
-		for (h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH - 640) {
-			for (w = 640; w; w--) {
-				if (*dst >= 32)
-					*dst = tbl[*dst];
-				dst++;
-			}
-		}
-	}
-#endif
 }
 
 char GetSBookTrans(int ii, BOOL townok)

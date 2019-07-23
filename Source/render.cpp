@@ -400,4 +400,26 @@ void CopyRect(uint8_t *dst, const uint8_t* src, int source_width, int copy_width
 	}
 }
 
+void CopyRectTransparent(uint8_t *dst, const uint8_t* src, int source_width, int copy_width, int num_rows) {
+	for (; num_rows > 0; --num_rows) {
+    for (int x = 0; x < copy_width; ++x) {
+      if (src[x]) dst[x] = src[x];
+    }
+    src += source_width;
+    dst += BUFFER_WIDTH;
+	}
+}
+
+void RedBack() {
+	int idx = 4608;
+  uint8_t* dst = &gpBuffer[SCREENXY(0, 0)];
+  uint8_t* tbl = &pLightTbl[idx];
+  for (int h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH) {
+    for (int i = 0; i < 640; ++i) {
+      if (leveltype != DTYPE_HELL || dst[i] >= 32)
+        dst[i] = tbl[dst[i]];
+    }
+  }
+}
+
 DEVILUTION_END_NAMESPACE
