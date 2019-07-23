@@ -1,11 +1,14 @@
 #include "diablo.h"
 #include "../3rdParty/Storm/Source/storm.h"
 
+#include <algorithm>
+
 DEVILUTION_BEGIN_NAMESPACE
 
 void DrawClippedMonster(int x, int y, int mx, int my, int m);
 void DrawClippedObject(int x, int y, int ox, int oy, BOOL pre);
 void DrawClippedPlayer(int pnum, int x, int y, int px, int py, BYTE *pCelBuff, int nCel, int nWidth);
+static void drawCell(BYTE *dst, const MICROS* pMap, int x, int y);
 
 int light_table_index;
 int PitchTbl[1024];
@@ -366,7 +369,6 @@ void DrawGame(int x, int y)
 
 void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
 {
-	int i, j;
 	BYTE *dst;
 	MICROS *pMap;
 
@@ -378,7 +380,9 @@ void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
 		if ((DWORD)y < MAXDUNY && (DWORD)x < MAXDUNX) {
 			level_piece_id = dPiece[x][y];
 			light_table_index = dLight[x][y];
-			if (level_piece_id != 0) {
+			if (level_piece_id == 0) {
+				world_draw_black_tile(&gpBuffer[sx + PitchTbl[sy]]);
+      } else {
 				dst = &gpBuffer[sx + 32 + PitchTbl[sy]];
 				cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
 				arch_draw_type = 2;
@@ -396,8 +400,6 @@ void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
           }
         }
 				scrollrt_draw_clipped_dungeon(&gpBuffer[sx + PitchTbl[sy]], x, y, sx, sy, 0);
-			} else {
-				world_draw_black_tile(&gpBuffer[sx + PitchTbl[sy]]);
 			}
 		}
 		x++;
@@ -407,12 +409,7 @@ void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
 		chunks--;
 	}
 
-	j = chunks;
-	while (j != 0) {
-		j--;
-		if (y < 0 || x >= MAXDUNX) {
-			break;
-		}
+  for (int j = 0; j < chunks && y >= 0 && x < MAXDUNX; ++j) {
 		if (y < MAXDUNY && x >= 0) {
 			level_piece_id = dPiece[x][y];
 			light_table_index = dLight[x][y];
@@ -420,29 +417,7 @@ void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
 				world_draw_black_tile(&gpBuffer[sx + PitchTbl[sy]]);
 			} else {
 				dst = &gpBuffer[sx + PitchTbl[sy]];
-				cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
-				arch_draw_type = 1;
-				level_cel_block = pMap->mt[0];
-				if (level_cel_block != 0) {
-					drawLowerScreen(dst);
-				}
-				arch_draw_type = 2;
-				level_cel_block = pMap->mt[1];
-				if (level_cel_block != 0) {
-					drawLowerScreen(dst + 32);
-				}
-				arch_draw_type = 0;
-				for (i = 2; i < MicroTileLen; i += 2) {
-					dst -= BUFFER_WIDTH * 32;
-					level_cel_block = pMap->mt[i];
-					if (level_cel_block != 0) {
-						drawLowerScreen(dst);
-					}
-					level_cel_block = pMap->mt[i + 1];
-					if (level_cel_block != 0) {
-						drawLowerScreen(dst + 32);
-					}
-				}
+        drawCell(dst, pMap, x, y);
 				scrollrt_draw_clipped_dungeon(&gpBuffer[sx + PitchTbl[sy]], x, y, sx, sy, 1);
 			}
 		}
@@ -460,37 +435,15 @@ void scrollrt_draw_lower(int x, int y, int sx, int sy, int chunks, int eflag)
 		} else {
 			dst = &gpBuffer[sx + PitchTbl[sy]];
 			cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
-			arch_draw_type = 1;
-			level_cel_block = pMap->mt[0];
-			if (level_cel_block != 0) {
-				drawLowerScreen(dst);
-			}
-			arch_draw_type = 0;
-			dst -= BUFFER_WIDTH * 32;
-			level_cel_block = pMap->mt[2];
-			if (level_cel_block != 0) {
-				drawLowerScreen(dst);
-			}
-			dst -= BUFFER_WIDTH * 32;
-			level_cel_block = pMap->mt[4];
-			if (level_cel_block != 0) {
-				drawLowerScreen(dst);
-			}
-			dst -= BUFFER_WIDTH * 32;
-			level_cel_block = pMap->mt[6];
-			if (level_cel_block != 0) {
-				drawLowerScreen(dst);
-			}
-			dst -= BUFFER_WIDTH * 32;
-			level_cel_block = pMap->mt[8];
-			if (level_cel_block != 0) {
-				drawLowerScreen(dst);
-			}
-			dst -= BUFFER_WIDTH * 32;
-			level_cel_block = pMap->mt[10];
-			if (level_cel_block != 0 && leveltype == DTYPE_HELL) {
-				drawLowerScreen(dst);
-			}
+      arch_draw_type = 1;
+      for (int i = 0; i <= (leveltype == DTYPE_HELL ? 10 : 8); i += 2) {
+        level_cel_block = pMap->mt[i];
+        if (level_cel_block != 0) {
+          drawLowerScreen(dst);
+        }
+			  dst -= BUFFER_WIDTH * 32;
+        arch_draw_type = 0;
+      }
 			scrollrt_draw_clipped_dungeon(&gpBuffer[sx + PitchTbl[sy]], x, y, sx, sy, 0);
 		}
 	}
@@ -811,22 +764,11 @@ void DrawClippedObject(int x, int y, int ox, int oy, BOOL pre)
 		Cel2DrawHdrOnly(sx, sy, object[bv]._oAnimData, object[bv]._oAnimFrame, object[bv]._oAnimWidth);
 }
 
-void scrollrt_draw_clipped_e_flag(BYTE *pBuff, int x, int y, int sx, int sy)
-{
-	int i, lti_old, cta_old, lpi_old;
-	BYTE *dst;
-	MICROS *pMap;
-
-	lti_old = light_table_index;
-	cta_old = cel_transparency_active;
-	lpi_old = level_piece_id;
-
+static void drawCell(BYTE *dst, const MICROS* pMap, int x, int y) {
 	level_piece_id = dPiece[x][y];
 	light_table_index = dLight[x][y];
 	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
-	pMap = &dpiece_defs_map_1[IsometricCoord(x, y)];
 
-	dst = pBuff;
 	arch_draw_type = 1;
 	level_cel_block = pMap->mt[0];
 	if (level_cel_block != 0) {
@@ -838,9 +780,8 @@ void scrollrt_draw_clipped_e_flag(BYTE *pBuff, int x, int y, int sx, int sy)
 		drawLowerScreen(dst + 32);
 	}
 
-	dst = pBuff;
 	arch_draw_type = 0;
-	for (i = 2; i < MicroTileLen; i += 2) {
+	for (int i = 2; i < MicroTileLen; i += 2) {
 		dst -= BUFFER_WIDTH * 32;
 		level_cel_block = pMap->mt[i];
 		if (level_cel_block != 0) {
@@ -851,7 +792,17 @@ void scrollrt_draw_clipped_e_flag(BYTE *pBuff, int x, int y, int sx, int sy)
 			drawLowerScreen(dst + 32);
 		}
 	}
+}
 
+void scrollrt_draw_clipped_e_flag(BYTE *pBuff, int x, int y, int sx, int sy)
+{
+	MICROS *pMap = &dpiece_defs_map_1[IsometricCoord(x, y)];
+
+	int lti_old = light_table_index;
+	int cta_old = cel_transparency_active;
+	int lpi_old = level_piece_id;
+
+  drawCell(pBuff, pMap, x, y);
 	scrollrt_draw_clipped_dungeon(pBuff, x, y, sx, sy, 0);
 
 	light_table_index = lti_old;
@@ -1030,7 +981,7 @@ void scrollrt_draw_cursor_back_buffer()
 
 void scrollrt_draw_cursor_item()
 {
-	int i, mx, my, col;
+	int i, col;
 	BYTE *src, *dst;
 
 	/// ASSERT: assert(! sgdwCursWdt);
