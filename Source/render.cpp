@@ -314,13 +314,15 @@ void Cel2DecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth
   }
 }
 
-void CelDecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
-{
-	BYTE *tbl = &pLightTbl[light_table_index * 256];
+void CelDecDatLightOnly(uint8_t *dst, const uint8_t *pRLEBytes, int nDataSize, int texWidth, const uint8_t* tbl) {
   skip_texture tex{pRLEBytes};
   while (tex.src < pRLEBytes + nDataSize) {
     drawRow(dst, texWidth, true, tex, solid{}, lit{tbl}, false /* bounds check */);
   }
+}
+
+void CelDecDatLightOnly(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth) {
+  CelDecDatLightOnly(dst, pRLEBytes, nDataSize, texWidth, &pLightTbl[light_table_index * 256]);
 }
 
 void Cel2DecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
@@ -333,14 +335,16 @@ void Cel2DecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidt
   }
 }
 
-void CelDecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth)
-{
-	BYTE *tbl = &pLightTbl[light_table_index * 256];
+void CelDecDatLightTrans(uint8_t *dst, const uint8_t *pRLEBytes, int nDataSize, int texWidth, const uint8_t* tbl) {
   skip_texture tex{pRLEBytes};
   checkered mask{};
   while (tex.src < pRLEBytes + nDataSize) {
     drawRow(dst, texWidth, true, tex, mask, lit{tbl}, false /* bounds check */);
   }
+}
+
+void CelDecDatLightTrans(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int texWidth) {
+  CelDecDatLightTrans(dst, pRLEBytes, nDataSize, texWidth, &pLightTbl[light_table_index * 256]);
 }
 
 void Cl2DecDatLightTbl2(BYTE *dst, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *pTable)
@@ -386,6 +390,14 @@ void CPrintString(int nOffset, int nCel, char col) {
   while (tex.src < src + len) {
     drawRow(dst, 13, true, tex, solid{}, color_conv[col], false /* bounds check */);
   }
+}
+
+void CopyRect(uint8_t *dst, const uint8_t* src, int source_width, int copy_width, int num_rows) {
+	for (; num_rows > 0; --num_rows) {
+    memcpy(dst, src, copy_width);
+    src += source_width;
+    dst += BUFFER_WIDTH;
+	}
 }
 
 DEVILUTION_END_NAMESPACE
