@@ -990,24 +990,14 @@ void scrollrt_draw_cursor_item()
 		return;
 	}
 
-	mx = MouseX - 1;
-	if (mx < 0) {
-		mx = 0;
-	} else if (mx > SCREEN_WIDTH - 1) {
-		return;
-	}
-	my = MouseY - 1;
-	if (my < 0) {
-		my = 0;
-	} else if (my > SCREEN_HEIGHT - 1) {
+	int mx = std::max(0, MouseX - 1);
+  int my = std::max(0, MouseY - 1);
+	if (mx > SCREEN_WIDTH - 1 || my > SCREEN_HEIGHT - 1) {
 		return;
 	}
 
 	sgdwCursX = mx;
-	sgdwCursWdt = sgdwCursX + cursW + 1;
-	if (sgdwCursWdt > SCREEN_WIDTH - 1) {
-		sgdwCursWdt = SCREEN_WIDTH - 1;
-	}
+	sgdwCursWdt = std::min((unsigned int)SCREEN_WIDTH - 1, sgdwCursX + cursW + 1);
 	sgdwCursX &= ~3;
 	sgdwCursWdt |= 3;
 	sgdwCursWdt -= sgdwCursX;
